@@ -1,0 +1,9 @@
+# wirewatch category overrides. One rule per line: domain = Category
+# A rule matches the domain and everything under it (example.com also matches www.example.com).
+# These beat the built-in rules and the UT1 lists. wirewatch picks up changes within a minute.
+#
+# Use any category name you like. Names in WW_FLAG_CATEGORIES raise an alert on the dashboard.
+
+# intranet.example.com = Internal
+# businesscentral.dynamics.com = Business apps
+# tiktokcdn-us.com = Social media

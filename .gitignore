@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+
+# Data: never commit a capture or database (they contain real network details)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.pcap
+*.pcapng
+
+# Real settings and certificates (the .example files are the templates)
+wirewatch.env
+categories.conf
+*.pem
+*.key
+
+# Editors and macOS
+.DS_Store
+.vscode/
+.idea/

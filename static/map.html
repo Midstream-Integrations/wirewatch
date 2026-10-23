@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wirewatch world map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#060A0F; --ocean:#08111A; --land:#14202B; --land-hit:#1A2C3B; --land-foreign:#2C2414; --border:#24333F;
+  --ink:#DCE6EE; --muted:#7C8D9B; --line:#1F2C37; --panel:rgba(9,15,21,.86);
+  --domestic:#4CC9F0; --foreign:#F5A524; --flagged:#FF4D5E; --inbound:#C77DFF; --home:#7CFFB2;
+  --font:"Barlow", "Segoe UI", system-ui, sans-serif;
+  --cond:"Barlow Semi Condensed", "Barlow", "Arial Narrow", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.4 var(--font);font-variant-numeric:tabular-nums;overflow:hidden}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--domestic);outline-offset:2px}
+#stage{position:fixed;inset:0}
+#stage svg,#stage canvas{position:absolute;inset:0;width:100%;height:100%}
+#fx{pointer-events:none}
+.sphere{fill:var(--ocean)}
+.grat{fill:none;stroke:#0E1A24;stroke-width:.6}
+.country{fill:var(--land);stroke:var(--border);stroke-width:.5;vector-effect:non-scaling-stroke}
+#zoomroot path,#zoomroot circle{vector-effect:non-scaling-stroke}
+#map{cursor:grab}
+#map:active{cursor:grabbing}
+.zoombtns{position:fixed;left:18px;bottom:64px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--panel);z-index:5}
+.zoombtns button{border:0;background:transparent;width:36px;height:34px;cursor:pointer;font-size:18px;line-height:1}
+.zoombtns button+button{border-top:1px solid var(--line)}
+.zoombtns button:hover{background:rgba(255,255,255,.06)}
+.zoombtns button.reset{font-size:11px;font-weight:600}
+.country.hit{fill:var(--land-hit)}
+.country.foreign{fill:var(--land-foreign)}
+.bubble{cursor:pointer;fill-opacity:.22;stroke-width:1.2}
+.bubble:hover{fill-opacity:.45}
+.home-dot{fill:var(--home)}
+.home-ring{fill:none;stroke:var(--home);stroke-width:1.5;animation:ring 2.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes ring{from{transform:scale(.4);opacity:.9}to{transform:scale(2.6);opacity:0}}
+
+/* HUD */
+.top{position:fixed;top:16px;left:18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;z-index:5}
+.brand{font:700 21px var(--cond);letter-spacing:.02em}
+.brand span{color:var(--muted);font-weight:500}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--panel)}
+.seg button{border:0;background:transparent;padding:5px 11px;cursor:pointer;font-size:13px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--domestic);color:#04121A;font-weight:600}
+.back{font-size:13px;color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 10px;background:var(--panel)}
+.back:hover{color:var(--ink)}
+.live{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted)}
+.live i{width:8px;height:8px;border-radius:50%;background:var(--home);box-shadow:0 0 8px var(--home)}
+.live.quiet i{background:var(--muted);box-shadow:none}
+
+aside{position:fixed;top:0;right:0;bottom:0;width:340px;background:var(--panel);border-left:1px solid var(--line);
+  backdrop-filter:blur(6px);display:flex;flex-direction:column;z-index:4}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+.kpi{background:#0A121A;padding:14px 16px}
+.kpi b{display:block;font:600 28px/1.1 var(--cond)}
+.kpi span{font-size:12px;color:var(--muted)}
+.kpi.warn b{color:var(--foreign)}
+.kpi.inb b{color:var(--inbound)}
+aside h2{font:600 13px var(--cond);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:16px 16px 8px}
+#feed{list-style:none;margin:0;padding:0 8px;overflow-y:auto;flex:1;min-height:120px}
+#feed li{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:start;padding:7px 8px;border-radius:6px;font-size:13px;animation:in .35s ease-out}
+#feed li:hover{background:rgba(255,255,255,.04)}
+@keyframes in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+#feed .d{width:8px;height:8px;border-radius:50%;margin-top:5px}
+#feed .t{overflow:hidden}
+#feed .t div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#feed .s{color:var(--muted);font-size:12px}
+#feed .w{font-size:12px;color:var(--muted);white-space:nowrap;text-align:right}
+#feed .replay{opacity:.6}
+#top{list-style:none;margin:0;padding:0 16px 16px;font-size:13px;max-height:30vh;overflow-y:auto}
+#top li{display:grid;grid-template-columns:1fr auto;gap:8px;padding:4px 0;border-bottom:1px solid var(--line);cursor:default}
+#top li:last-child{border-bottom:0}
+#top .bar{grid-column:1/-1;height:3px;border-radius:2px;background:var(--domestic);opacity:.7}
+#top .foreign .bar{background:var(--foreign)}
+#top .foreign span:first-child{color:var(--foreign)}
+.empty{color:var(--muted);font-size:13px;padding:6px 16px}
+
+.legend{position:fixed;left:18px;bottom:16px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);background:var(--panel);
+  border:1px solid var(--line);border-radius:8px;padding:8px 12px;z-index:5;max-width:calc(100vw - 380px)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.legend label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--ink)}
+#note{position:fixed;left:50%;top:18px;transform:translateX(-50%);font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:5px 14px;z-index:5;display:none;white-space:nowrap}
+#tip{position:fixed;pointer-events:none;background:#0B141C;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;
+  max-width:300px;z-index:10;display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+#tip h3{margin:0 0 4px;font:600 16px var(--cond)}
+#tip .tag{color:var(--foreign);font-weight:600;font-size:12px}
+#tip ul{margin:6px 0 0;padding:0;list-style:none}
+#tip li{display:flex;justify-content:space-between;gap:10px;color:var(--muted)}
+#tip li span:first-child{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#err{position:fixed;left:18px;top:64px;background:#2A1416;border:1px solid var(--flagged);border-radius:8px;padding:8px 12px;font-size:13px;display:none;z-index:6}
+#detail{position:fixed;top:0;right:0;bottom:0;width:400px;background:#0A1118;border-left:1px solid var(--line);z-index:7;
+  display:flex;flex-direction:column;transform:translateX(100%);visibility:hidden;transition:transform .2s ease,visibility 0s linear .2s}
+#detail.open{transform:none;visibility:visible;transition:transform .2s ease}
+#detail header{padding:16px 16px 10px;border-bottom:1px solid var(--line)}
+#detail header .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+#detail h3{margin:0;font:600 22px/1.15 var(--cond)}
+#detail .sub{color:var(--muted);font-size:13px;margin-top:4px}
+#detail .tag{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--foreign)}
+#detail .tag.in{color:var(--inbound)}
+#detail .close{border:1px solid var(--line);background:transparent;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:13px}
+#detail input{margin-top:10px;width:100%;background:#0E1821;border:1px solid var(--line);border-radius:6px;padding:7px 10px;color:var(--ink);font:inherit;font-size:13px}
+#iplist{list-style:none;margin:0;padding:8px;overflow-y:auto;flex:1}
+#iplist > li{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#0C151D}
+#iplist > li.flag{border-color:var(--flagged)}
+.ip-head{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.ip-head b{font:600 15px var(--font);user-select:all}
+.ip-head span{font-size:12px;color:var(--muted);white-space:nowrap}
+.ip-org{font-size:12px;color:var(--muted);margin-top:2px}
+.hosts{list-style:none;margin:8px 0 0;padding:0}
+.hosts li{display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0}
+.hosts .h{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all}
+.hosts .c{font-size:11px;color:var(--muted);white-space:nowrap}
+.hosts .c.bad{color:var(--flagged);font-weight:600}
+.nohost{font-size:12px;color:var(--muted);margin-top:6px;font-style:italic}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.chips span{font-size:11px;border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--muted)}
+.from{font-size:12px;color:var(--muted);margin-top:6px}
+.bubble.sel{stroke:#fff;stroke-width:2;fill-opacity:.5}
+.credit{position:fixed;right:356px;bottom:10px;font-size:11px;color:var(--muted);z-index:5}
+@media (max-width:900px){
+  #detail{width:100%;top:auto;height:60vh;border-left:0;border-top:1px solid var(--line)}
+  aside{top:auto;width:100%;height:40vh;border-left:0;border-top:1px solid var(--line)}
+  .legend{bottom:calc(40vh + 10px);max-width:calc(100vw - 36px)}
+  .credit{right:12px;bottom:calc(40vh + 4px)}
+}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="map" role="img" aria-label="World map of network connections"></svg><canvas id="fx"></canvas></div>
+
+<div class="top">
+  <div class="brand">wirewatch <span>world map</span></div>
+  <a class="back" href="/">Dashboard</a>
+  <div class="seg" role="group" aria-label="Time range" id="range">
+    <button data-h="1">1 hour</button><button data-h="24" aria-pressed="true">24 hours</button><button data-h="168">7 days</button>
+  </div>
+  <div class="live" id="live"><i></i><span id="livetext">Connecting…</span></div>
+</div>
+<div id="note"></div>
+<div id="err"></div>
+
+<aside aria-label="Connection details">
+  <div class="kpis">
+    <div class="kpi"><b id="k-live">0</b><span>live connections, last minute</span></div>
+    <div class="kpi"><b id="k-countries">0</b><span>countries reached</span></div>
+    <div class="kpi warn"><b id="k-foreign">0</b><span id="k-foreign-l">countries outside the US</span></div>
+    <div class="kpi inb"><b id="k-inbound">0</b><span>inbound attempts from the internet</span></div>
+  </div>
+  <h2>Live feed</h2>
+  <ul id="feed" aria-live="off"></ul>
+  <h2>Top countries</h2>
+  <ul id="top"></ul>
+</aside>
+
+<div class="legend">
+  <span><i style="background:var(--home)"></i>Your network</span>
+  <span><i style="background:var(--domestic)"></i><span id="lg-dom">Inside the US</span></span>
+  <span><i style="background:var(--foreign)"></i><span id="lg-for">Outside the US</span></span>
+  <span><i style="background:var(--flagged)"></i>Flagged category</span>
+  <span><i style="background:var(--inbound)"></i>Inbound</span>
+  <label><input type="checkbox" id="replay" checked> Replay when quiet</label>
+</div>
+<div class="zoombtns" role="group" aria-label="Zoom">
+  <button id="zin" aria-label="Zoom in" title="Zoom in">+</button>
+  <button id="zout" aria-label="Zoom out" title="Zoom out">−</button>
+  <button id="zreset" class="reset" aria-label="Reset zoom" title="Reset zoom">1:1</button>
+</div>
+<div class="credit"><a href="https://db-ip.com">IP Geolocation by DB-IP</a></div>
+<div id="tip"></div>
+<section id="detail" aria-label="Destination details" aria-hidden="true">
+  <header>
+    <div class="row"><div><h3 id="d-title"></h3><div class="sub" id="d-sub"></div><div class="tag" id="d-tag"></div></div>
+      <button class="close" id="d-close">Close</button></div>
+    <input type="search" id="d-filter" placeholder="Filter by IP, hostname, owner or device" aria-label="Filter addresses">
+  </header>
+  <ul id="iplist"></ul>
+</section>
+
+<script src="/static/vendor/d3.min.js"></script>
+<script src="/static/vendor/topojson-client.min.js"></script>
+<script>
+const NUM = Object.fromEntries("AW:533|AF:4|AO:24|AI:660|AX:248|AL:8|AD:20|AE:784|AR:32|AM:51|AS:16|AQ:10|TF:260|AG:28|AU:36|AT:40|AZ:31|BI:108|BE:56|BJ:204|BQ:535|BF:854|BD:50|BG:100|BH:48|BS:44|BA:70|BL:652|BY:112|BZ:84|BM:60|BO:68|BR:76|BB:52|BN:96|BT:64|BV:74|BW:72|CF:140|CA:124|CC:166|CH:756|CL:152|CN:156|CI:384|CM:120|CD:180|CG:178|CK:184|CO:170|KM:174|CV:132|CR:188|CU:192|CW:531|CX:162|KY:136|CY:196|CZ:203|DE:276|DJ:262|DM:212|DK:208|DO:214|DZ:12|EC:218|EG:818|ER:232|EH:732|ES:724|EE:233|ET:231|FI:246|FJ:242|FK:238|FR:250|FO:234|FM:583|GA:266|GB:826|GE:268|GG:831|GH:288|GI:292|GN:324|GP:312|GM:270|GW:624|GQ:226|GR:300|GD:308|GL:304|GT:320|GF:254|GU:316|GY:328|HK:344|HM:334|HN:340|HR:191|HT:332|HU:348|ID:360|IM:833|IN:356|IO:86|IE:372|IR:364|IQ:368|IS:352|IL:376|IT:380|JM:388|JE:832|JO:400|JP:392|KZ:398|KE:404|KG:417|KH:116|KI:296|KN:659|KR:410|KW:414|LA:418|LB:422|LR:430|LY:434|LC:662|LI:438|LK:144|LS:426|LT:440|LU:442|LV:428|MO:446|MF:663|MA:504|MC:492|MD:498|MG:450|MV:462|MX:484|MH:584|MK:807|ML:466|MT:470|MM:104|ME:499|MN:496|MP:580|MZ:508|MR:478|MS:500|MQ:474|MU:480|MW:454|MY:458|YT:175|NA:516|NC:540|NE:562|NF:574|NG:566|NI:558|NU:570|NL:528|NO:578|NP:524|NR:520|NZ:554|OM:512|PK:586|PA:591|PN:612|PE:604|PH:608|PW:585|PG:598|PL:616|PR:630|KP:408|PT:620|PY:600|PS:275|PF:258|QA:634|RE:638|RO:642|RU:643|RW:646|SA:682|SD:729|SN:686|SG:702|GS:239|SH:654|SJ:744|SB:90|SL:694|SV:222|SM:674|SO:706|PM:666|RS:688|SS:728|ST:678|SR:740|SK:703|SI:705|SE:752|SZ:748|SX:534|SC:690|SY:760|TC:796|TD:148|TG:768|TH:764|TJ:762|TK:772|TM:795|TL:626|TO:776|TT:780|TN:788|TR:792|TV:798|TW:158|TZ:834|UG:800|UA:804|UM:581|UY:858|US:840|UZ:860|VA:336|VC:670|VE:862|VG:92|VI:850|VN:704|VU:548|WF:876|WS:882|YE:887|ZA:710|ZM:894|ZW:716".split("|").map(x => { const [a, n] = x.split(":"); return [a, String(n).padStart(3, "0")]; }));
+const css = getComputedStyle(document.documentElement);
+const C = k => css.getPropertyValue(k).trim();
+const COLOR = {domestic: C("--domestic"), foreign: C("--foreign"), flagged: C("--flagged"), inbound: C("--inbound"), home: C("--home")};
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const n = v => (v ?? 0).toLocaleString();
+const $ = s => document.querySelector(s);
+
+const state = {hours: 24, data: null, world: null, lastTs: Date.now() / 1000 - 90, liveTimes: [], lastLive: 0,
+               comets: [], pulses: [], queue: [], proj: null, home: null, homeName: "the US", zt: d3.zoomIdentity};
+const svg = d3.select("#map"), canvas = $("#fx"), ctx = canvas.getContext("2d");
+
+async function api(path, params = {}) {
+  const r = await fetch(`${path}?${new URLSearchParams(params)}`, {credentials: "same-origin"});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  return j;
+}
+function showErr(e) { const el = $("#err"); el.style.display = e ? "block" : "none"; el.textContent = e ? (e.message || e) : ""; }
+
+// ---- geometry
+function layout() {
+  const w = innerWidth, h = innerHeight, narrow = w <= 900;
+  const right = narrow ? 0 : 340, bottom = narrow ? innerHeight * 0.4 : 0;
+  const dpr = devicePixelRatio || 1;
+  canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  svg.attr("viewBox", `0 0 ${w} ${h}`);
+  state.proj = d3.geoNaturalEarth1().fitExtent([[16, 64], [w - right - 16, h - bottom - 56]], {type: "Sphere"});
+  drawBase();
+}
+function xy(lon, lat) { return state.proj([lon, lat]); }
+function curve(a, b) {
+  // screen-space arc that lifts toward the top of the map, higher for longer hops
+  const dx = b[0] - a[0], dy = b[1] - a[1], d = Math.hypot(dx, dy);
+  const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+  const lift = Math.min(220, 0.28 * d + 8);
+  let nx = -dy / (d || 1), ny = dx / (d || 1);
+  if (ny > 0) { nx = -nx; ny = -ny; }
+  return [mx + nx * lift, my + ny * lift];
+}
+function qpt(a, c, b, t) {
+  const u = 1 - t;
+  return [u * u * a[0] + 2 * u * t * c[0] + t * t * b[0], u * u * a[1] + 2 * u * t * c[1] + t * t * b[1]];
+}
+
+function drawBase() {
+  if (!state.world || !state.proj) return;
+  const path = d3.geoPath(state.proj);
+  const d = state.data;
+  const hit = new Set(), foreign = new Set();
+  (d ? d.places : []).forEach(p => { const id = NUM[p.cc]; if (id) (p.foreign ? foreign : hit).add(id); });
+  svg.selectAll("*").remove();
+  const root = svg.append("g").attr("id", "zoomroot").attr("transform", state.zt.toString());
+  root.append("path").attr("class", "sphere").attr("d", path({type: "Sphere"}));
+  root.append("path").attr("class", "grat").attr("d", path(d3.geoGraticule10()));
+  root.append("g").selectAll("path").data(state.world).join("path")
+    .attr("class", f => "country" + (foreign.has(f.id) ? " foreign" : hit.has(f.id) ? " hit" : ""))
+    .attr("d", path);
+  if (!d) return;
+  const home = xy(d.home.lon, d.home.lat);
+  state.home = home;
+  // faint standing arcs to every destination in range
+  const g = root.append("g").attr("fill", "none");
+  const max = Math.max(1, ...d.places.map(p => p.attempts));
+  d.places.slice(0, 400).forEach(p => {
+    const b = xy(p.lon, p.lat); if (!b) return;
+    const c = curve(home, b), w = 0.4 + 2.2 * Math.log1p(p.attempts) / Math.log1p(max);
+    g.append("path").attr("d", `M${home[0]},${home[1]} Q${c[0]},${c[1]} ${b[0]},${b[1]}`).attr("stroke", colorFor(p)).attr("stroke-opacity", 0.16).attr("stroke-width", w);
+  });
+  d.inbound.slice(0, 200).forEach(p => {
+    const a = xy(p.lon, p.lat); if (!a) return;
+    const c = curve(a, home);
+    g.append("path").attr("d", `M${a[0]},${a[1]} Q${c[0]},${c[1]} ${home[0]},${home[1]}`).attr("stroke", COLOR.inbound).attr("stroke-opacity", 0.14).attr("stroke-width", 0.8).attr("stroke-dasharray", "3 4");
+  });
+  // destination bubbles
+  const bubbles = root.append("g");
+  d.places.forEach(p => {
+    const b = xy(p.lon, p.lat); if (!b) return;
+    const r = 2.5 + 13 * Math.sqrt(p.attempts / max);
+    bubbles.append("circle").attr("class", "bubble").attr("cx", b[0]).attr("cy", b[1]).attr("data-r", r).attr("r", r / state.zt.k)
+      .attr("fill", colorFor(p)).attr("stroke", colorFor(p))
+      .classed("sel", state.sel === "o|" + p.key)
+      .on("mousemove", e => tip(e, placeTip(p) + `<div style="color:var(--muted);margin-top:6px">Click for every address</div>`))
+      .on("mouseleave", () => tip(null))
+      .on("click", () => openPlace(p, "outbound"));
+  });
+  d.inbound.forEach(p => {
+    const a = xy(p.lon, p.lat); if (!a) return;
+    bubbles.append("circle").attr("class", "bubble").attr("cx", a[0]).attr("cy", a[1]).attr("data-r", 3 + 4 * Math.log10(1 + p.attempts)).attr("r", (3 + 4 * Math.log10(1 + p.attempts)) / state.zt.k)
+      .attr("fill", COLOR.inbound).attr("stroke", COLOR.inbound)
+      .on("mousemove", e => tip(e, `<h3>${esc(p.city ? p.city + ", " : "")}${esc(p.country || p.cc)}</h3><div style="color:var(--inbound)">Inbound</div>
+        ${n(p.attempts)} attempts from ${n(p.sources)} ${p.sources === 1 ? "address" : "addresses"} to ${n(p.targets)} of your devices
+        <div style="color:var(--muted);margin-top:6px">Click for every address</div>`))
+      .classed("sel", state.sel === "i|" + p.cc + p.lat + p.lon)
+      .on("mouseleave", () => tip(null))
+      .on("click", () => openPlace(p, "inbound"));
+  });
+  const hg = root.append("g").attr("class", "homeg").attr("transform", `translate(${home}) scale(${1 / state.zt.k})`);
+  hg.append("circle").attr("class", "home-ring").attr("r", 6);
+  hg.append("circle").attr("class", "home-dot").attr("r", 4.5);
+  hg.append("title").text(d.home.set ? "Your network" : "Your network (approximate; set WW_MAP_HOME for the exact spot)");
+}
+function colorFor(p) {
+  const flagged = p.categories && Object.keys(p.categories).some(c => FLAGGED.has(c));
+  return flagged ? COLOR.flagged : p.foreign ? COLOR.foreign : COLOR.domestic;
+}
+let FLAGGED = new Set(["Malware & phishing", "Crypto mining", "Stalkerware"]);
+
+function placeTip(p) {
+  const where = [p.city, p.region].filter(Boolean).join(", ");
+  const cats = Object.entries(p.categories || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(c => esc(c[0])).join(", ");
+  return `<h3>${esc(where ? where + ", " : "")}${esc(p.country || p.cc)}</h3>
+    ${p.foreign ? `<div class="tag">Outside ${esc(state.homeName)}</div>` : ""}
+    <div>${n(p.attempts)} attempts, ${n(p.destinations)} ${p.destinations === 1 ? "address" : "addresses"}, ${n(p.devices)} ${p.devices === 1 ? "device" : "devices"}</div>
+    ${cats ? `<div style="color:var(--muted)">${cats}</div>` : ""}
+    <ul>${p.top.map(t => `<li><span>${esc(t.name)}</span><span>${n(t.attempts)}</span></li>`).join("")}</ul>`;
+}
+function tip(e, html) {
+  const t = $("#tip");
+  if (!e) { t.style.display = "none"; return; }
+  t.innerHTML = html; t.style.display = "block";
+  const x = Math.min(e.clientX + 14, innerWidth - t.offsetWidth - 10), y = Math.min(e.clientY + 14, innerHeight - t.offsetHeight - 10);
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+
+// ---- animation
+function launch(ev, replay = false) {
+  if (!state.proj || !state.home) return;
+  const p = xy(ev.lon, ev.lat); if (!p) return;
+  const inbound = ev.direction === "inbound";
+  const color = ev.flagged ? COLOR.flagged : inbound ? COLOR.inbound : ev.foreign ? COLOR.foreign : COLOR.domestic;
+  const a = inbound ? p : state.home, b = inbound ? state.home : p;
+  if (REDUCED) { state.pulses.push({at: b, color, t0: performance.now(), dur: 900, alpha: replay ? .5 : 1}); }
+  else state.comets.push({a, b, c: curve(a, b), color, t0: performance.now(), dur: 1300 + Math.random() * 600, alpha: replay ? .5 : 1});
+  if (!replay) { state.liveTimes.push(Date.now()); state.lastLive = Date.now(); }
+  addFeed(ev, color, replay);
+}
+function frame(now) {
+  const dpr = devicePixelRatio || 1, z = state.zt, k = z.k;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, innerWidth, innerHeight);
+  ctx.setTransform(dpr * k, 0, 0, dpr * k, dpr * z.x, dpr * z.y);
+  ctx.lineCap = "round";
+  state.comets = state.comets.filter(m => {
+    const t = (now - m.t0) / m.dur;
+    if (t >= 1) { state.pulses.push({at: m.b, color: m.color, t0: now, dur: 1000, alpha: m.alpha}); return false; }
+    const head = d3.easeCubicInOut(t), tail = Math.max(0, head - 0.35);
+    const steps = 18;
+    for (let i = 0; i < steps; i++) {
+      const t1 = tail + (head - tail) * i / steps, t2 = tail + (head - tail) * (i + 1) / steps;
+      const p1 = qpt(m.a, m.c, m.b, t1), p2 = qpt(m.a, m.c, m.b, t2);
+      ctx.strokeStyle = m.color; ctx.globalAlpha = m.alpha * (i + 1) / steps; ctx.lineWidth = (0.6 + 2.2 * (i + 1) / steps) / k;
+      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.stroke();
+    }
+    const h = qpt(m.a, m.c, m.b, head);
+    ctx.globalAlpha = m.alpha; ctx.fillStyle = "#fff"; ctx.shadowColor = m.color; ctx.shadowBlur = 12;
+    ctx.beginPath(); ctx.arc(h[0], h[1], 2.2 / k, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+    return true;
+  });
+  state.pulses = state.pulses.filter(p => {
+    const t = (now - p.t0) / p.dur; if (t >= 1) return false;
+    ctx.globalAlpha = p.alpha * (1 - t); ctx.strokeStyle = p.color; ctx.lineWidth = 1.6 / k;
+    ctx.beginPath(); ctx.arc(p.at[0], p.at[1], (3 + 16 * d3.easeCubicOut(t)) / k, 0, 7); ctx.stroke();
+    return true;
+  });
+  ctx.globalAlpha = 1;
+  // release queued live events on their scheduled time
+  const ms = Date.now();
+  while (state.queue.length && state.queue[0].at <= ms) launch(state.queue.shift().ev);
+  requestAnimationFrame(frame);
+}
+
+function addFeed(ev, color, replay) {
+  const ul = $("#feed");
+  const li = document.createElement("li");
+  if (replay) li.className = "replay";
+  const target = ev.name || ev.remote;
+  const where = [ev.city, ev.country || ev.cc].filter(Boolean).join(", ");
+  const port = ev.port != null ? `${ev.proto} ${ev.port}${ev.service ? " " + ev.service : ""}` : ev.proto;
+  li.innerHTML = `<span class="d" style="background:${color}"></span>
+    <div class="t"><div>${ev.direction === "inbound" ? `${esc(ev.remote)} → ${esc(ev.device)}` : `${esc(ev.device)} → ${esc(target)}`}</div>
+    <div class="s">${esc(where)}${ev.category ? " · " + esc(ev.category) : ""}${ev.org && !ev.name ? " · " + esc(ev.org) : ""}</div></div>
+    <span class="w">${replay ? "replay" : esc(port)}</span>`;
+  ul.prepend(li);
+  while (ul.children.length > 60) ul.lastChild.remove();
+}
+
+// ---- data
+async function loadPlaces() {
+  try {
+    const d = await api("/api/map", {hours: state.hours});
+    state.data = d; showErr(null);
+    state.homeName = d.home_countries.length === 1 && d.home_countries[0] === "US" ? "the US" : d.home_countries.join(", ");
+    $("#k-countries").textContent = n(d.totals.countries);
+    $("#k-foreign").textContent = n(d.totals.foreign_countries);
+    $("#k-foreign-l").textContent = `countries outside ${state.homeName}`;
+    $("#lg-dom").textContent = `Inside ${state.homeName}`; $("#lg-for").textContent = `Outside ${state.homeName}`;
+    $("#k-inbound").textContent = n(d.totals.inbound_attempts);
+    renderTop(d); drawBase();
+  } catch (e) { showErr(e); }
+}
+function renderTop(d) {
+  const by = {};
+  d.places.forEach(p => { const k = p.cc; by[k] = by[k] || {cc: p.cc, country: p.country, attempts: 0, foreign: p.foreign}; by[k].attempts += p.attempts; });
+  const list = Object.values(by).sort((a, b) => b.attempts - a.attempts).slice(0, 15);
+  const max = Math.max(1, ...list.map(x => x.attempts));
+  $("#top").innerHTML = list.length ? list.map(x => `<li class="${x.foreign ? "foreign" : ""}"><span>${esc(x.country || x.cc)}</span><span>${n(x.attempts)}</span>
+    <span class="bar" style="width:${Math.max(2, 100 * x.attempts / max)}%"></span></li>`).join("")
+    : `<li class="empty">No internet destinations in this range yet.</li>`;
+}
+async function poll() {
+  try {
+    const r = await api("/api/map/events", {since: state.lastTs});
+    showErr(null);
+    let ev = r.events;
+    if (ev.length) state.lastTs = Math.max(state.lastTs, ...ev.map(e => e.ts));
+    if (ev.length > 60) ev = d3.shuffle(ev.slice()).slice(0, 60);
+    const base = Date.now();
+    ev.forEach(e => state.queue.push({at: base + Math.random() * 4800, ev: e}));
+    state.queue.sort((a, b) => a.at - b.at);
+  } catch (e) { showErr(e); }
+}
+function tickStatus() {
+  const now = Date.now();
+  state.liveTimes = state.liveTimes.filter(t => now - t < 60000);
+  $("#k-live").textContent = n(state.liveTimes.length);
+  const quiet = now - state.lastLive > 30000;
+  $("#live").classList.toggle("quiet", quiet);
+  $("#livetext").textContent = quiet ? "No live traffic in the last 30 seconds" : "Live";
+  const replaying = quiet && $("#replay").checked && state.data && state.data.places.length;
+  const note = $("#note");
+  note.style.display = replaying ? "block" : "none";
+  note.textContent = "Replaying recent destinations until live traffic arrives";
+}
+function ambient() {
+  const d = state.data;
+  if (d && d.places.length && $("#replay").checked && Date.now() - state.lastLive > 30000 && !document.hidden) {
+    const total = d.places.reduce((a, p) => a + p.attempts, 0);
+    let r = Math.random() * total, p = d.places[0];
+    for (const x of d.places) { r -= x.attempts; if (r <= 0) { p = x; break; } }
+    const t = p.top[Math.floor(Math.random() * p.top.length)] || {};
+    launch({direction: "outbound", device: "recent", remote: "", name: t.name || p.country, cc: p.cc, country: p.country, city: p.city,
+            lat: p.lat, lon: p.lon, category: t.category || "", flagged: FLAGGED.has(t.category), foreign: p.foreign, proto: ""}, true);
+  }
+  setTimeout(ambient, 500 + Math.random() * 900);
+}
+
+// ---- destination detail
+async function openPlace(p, direction) {
+  tip(null);
+  state.sel = direction === "inbound" ? "i|" + p.cc + p.lat + p.lon : "o|" + p.key;
+  state.place = {p, direction};
+  d3.selectAll("circle.bubble").classed("sel", false);
+  drawBase();
+  const where = [p.city, p.region].filter(Boolean).join(", ");
+  $("#d-title").textContent = (where ? where + ", " : "") + (p.country || p.cc);
+  $("#d-sub").textContent = "Loading…";
+  const tag = $("#d-tag");
+  tag.className = "tag" + (direction === "inbound" ? " in" : "");
+  tag.textContent = direction === "inbound" ? "Inbound: these addresses connected to your devices" : (p.foreign ? `Outside ${state.homeName}` : "");
+  $("#iplist").innerHTML = "";
+  $("#d-filter").value = "";
+  const el = $("#detail"); el.classList.add("open"); el.setAttribute("aria-hidden", "false");
+  try {
+    const r = await api("/api/map/place", {cc: p.cc, lat: p.lat, lon: p.lon, hours: state.hours, direction});
+    state.placeData = r;
+    const att = r.ips.reduce((a, x) => a + x.attempts, 0);
+    $("#d-sub").textContent = `${n(r.total_ips)} ${r.total_ips === 1 ? "address" : "addresses"}, ${n(att)} attempts in the last ${({1:"hour",24:"24 hours",168:"7 days"})[state.hours]}. Hostnames come from DNS answers, TLS (SNI) and HTTP Host headers.`;
+    renderIPs();
+  } catch (e) { $("#d-sub").textContent = e.message; }
+}
+function renderIPs() {
+  const r = state.placeData; if (!r) return;
+  const q = $("#d-filter").value.trim().toLowerCase();
+  const inbound = r.direction === "inbound";
+  const list = r.ips.filter(x => !q || JSON.stringify(x).toLowerCase().includes(q));
+  const src = {dns: "DNS", tls: "TLS", http: "HTTP"};
+  $("#iplist").innerHTML = list.length ? list.map(x => `
+    <li class="${x.flagged ? "flag" : ""}">
+      <div class="ip-head"><b>${esc(x.ip)}</b><span>${n(x.attempts)} attempts, ${ago(x.last_seen)}</span></div>
+      <div class="ip-org">${esc([x.org, x.asn ? "AS" + x.asn : ""].filter(Boolean).join(", ") || "Network owner unknown")}</div>
+      ${x.names.length ? `<ul class="hosts">${x.names.map(h => `<li><span class="h" title="${esc(h.name)}">${esc(h.name)}</span>
+        <span class="c ${h.flagged ? "bad" : ""}">${esc(h.category || "Uncategorized")} · ${esc(src[h.source] || h.source)}</span></li>`).join("")}</ul>`
+        : `<div class="nohost">${inbound ? "Inbound source; no hostname" : "No hostname seen for this address"}</div>`}
+      <div class="chips">${x.ports.map(p => `<span>${esc(p.port)}</span>`).join("")}</div>
+      <div class="from">${inbound ? "To" : "From"} ${x.devices.map(d => `${esc(d.name)} (${n(d.attempts)})`).join(", ")}</div>
+    </li>`).join("") : `<li style="border:0;color:var(--muted)">${q ? "Nothing matches that filter." : "No addresses in this range."}</li>`;
+}
+function ago(t) { if (!t) return "never"; const s = Date.now() / 1000 - t; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; if (s < 86400) return Math.round(s / 3600) + " h ago"; return Math.round(s / 86400) + " d ago"; }
+function closePlace() {
+  const el = $("#detail"); el.classList.remove("open"); el.setAttribute("aria-hidden", "true");
+  state.sel = null; state.place = null; state.placeData = null; drawBase();
+}
+$("#d-close").onclick = closePlace;
+$("#d-filter").oninput = renderIPs;
+addEventListener("keydown", e => { if (e.key === "Escape") closePlace(); });
+
+$("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  state.hours = +b.dataset.h; loadPlaces().then(() => { if (state.place) openPlace(state.place.p, state.place.direction); });
+});
+// ---- zoom: scroll wheel, pinch, drag to pan, double-click, or the +/- buttons
+const zoom = d3.zoom().scaleExtent([1, 16])
+  .translateExtent([[-200, -200], [innerWidth + 200, innerHeight + 200]])
+  .on("zoom", e => {
+    state.zt = e.transform; tip(null);
+    const k = e.transform.k;
+    svg.select("#zoomroot").attr("transform", e.transform);
+    svg.selectAll("circle.bubble").attr("r", function () { return +this.getAttribute("data-r") / k; });
+    if (state.home) svg.select(".homeg").attr("transform", `translate(${state.home}) scale(${1 / k})`);
+  });
+svg.call(zoom);
+$("#zin").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 2);
+$("#zout").onclick = () => svg.transition().duration(300).call(zoom.scaleBy, 0.5);
+$("#zreset").onclick = () => svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "+" || e.key === "=") $("#zin").click();
+  else if (e.key === "-") $("#zout").click();
+  else if (e.key === "0") $("#zreset").click();
+});
+
+addEventListener("resize", () => { clearTimeout(state.rz); state.rz = setTimeout(() => {
+  zoom.translateExtent([[-200, -200], [innerWidth + 200, innerHeight + 200]]); layout(); }, 120); });
+
+(async function start() {
+  try {
+    const world = await fetch("/static/vendor/countries-110m.json", {credentials: "same-origin"}).then(r => r.json());
+    state.world = topojson.feature(world, world.objects.countries).features.filter(f => f.id !== "010");
+  } catch (e) { showErr("Could not load the world map data."); }
+  try { const s = await api("/api/summary", {hours: 1}); if (s.flag_categories) FLAGGED = new Set(s.flag_categories); } catch (e) {}
+  layout();
+  await loadPlaces();
+  await poll();
+  requestAnimationFrame(frame);
+  setInterval(poll, 5000);
+  setInterval(loadPlaces, 60000);
+  setInterval(tickStatus, 1000);
+  ambient();
+})();
+</script>
+</body>
+</html>

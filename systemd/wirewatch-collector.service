@@ -1,0 +1,24 @@
+[Unit]
+Description=wirewatch packet collector (tshark)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wirewatch
+Group=wirewatch
+SupplementaryGroups=wireshark
+EnvironmentFile=/etc/wirewatch/wirewatch.env
+ExecStart=/usr/bin/python3 /opt/wirewatch/collector.py
+Restart=always
+RestartSec=5
+# dumpcap gets its capture rights from file capabilities (wireshark group),
+# so NoNewPrivileges must stay off for this unit.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/wirewatch
+ProtectHome=yes
+PrivateTmp=yes
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

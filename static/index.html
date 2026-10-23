@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wirewatch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --bg:#E9EDEF; --surface:#F6F8F9; --ink:#1B2731; --muted:#5B6873; --line:#C9D2D8;
+  --accent:#1F5FA8; --accent-soft:#D6E3F2; --warn:#B86E00; --warn-soft:#F6E6CC; --ok:#2E7D5B;
+  --bad:#B42318; --bad-soft:#FBE4E1;
+  --heat-0:#E1E7EB; --heat-1:#C3D6EC; --heat-2:#8FB4DE; --heat-3:#4F87C6; --heat-4:#1F5FA8; --heat-5:#123D70;
+  --font:"Barlow", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-cond:"Barlow Semi Condensed", "Barlow", "Arial Narrow", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#131B21; --surface:#1A242C; --ink:#DCE4EA; --muted:#8C9AA5; --line:#2D3A44;
+    --accent:#6FA8E8; --accent-soft:#1F3349; --warn:#E6A23C; --warn-soft:#3A2C16; --ok:#5CBF94;
+    --bad:#F97066; --bad-soft:#3D1D1B;
+    --heat-0:#1E2932; --heat-1:#20384F; --heat-2:#2A5480; --heat-3:#3A76B4; --heat-4:#6FA8E8; --heat-5:#B9D6F5;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.45 var(--font);font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto;padding:0 24px}
+
+/* top bar */
+header{border-bottom:1px solid var(--line);background:var(--surface)}
+header .wrap{display:flex;align-items:center;gap:20px;min-height:60px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.brand{font:600 22px var(--font-cond);letter-spacing:.01em}
+.status{color:var(--muted);font-size:14px;display:flex;align-items:center;gap:8px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.dot.stale{background:var(--warn)}
+.spacer{flex:1}
+.maplink{font-size:14px;color:var(--accent);text-decoration:none;border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+.maplink:hover{background:var(--accent-soft)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:6px 12px;cursor:pointer;font-size:14px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+@media (prefers-color-scheme: dark){.seg button[aria-pressed=true]{color:#0E1A26}}
+label.chk{display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer}
+
+/* hero sentence */
+.lede{padding:36px 0 8px}
+.lede p{font:500 clamp(22px,2.6vw,32px)/1.25 var(--font-cond);margin:0;max-width:62ch}
+.lede b{font-weight:600;color:var(--accent)}
+.lede .warnnum{color:var(--warn)}
+.lede small{display:block;margin-top:10px;font:400 15px var(--font);color:var(--muted)}
+
+/* heatmap */
+.heat{margin:24px 0 8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:18px 18px 12px}
+.heat h2,.panel h2{font:600 17px var(--font-cond);margin:0 0 12px}
+.heat-scroll{overflow-x:auto}
+.grid{display:grid;align-items:center;gap:2px;min-width:640px}
+.rowlab{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:10px;cursor:pointer;border:0;background:none;text-align:left}
+.rowlab:hover{color:var(--accent)}
+.rowlab span{color:var(--muted);font-size:12px;margin-left:6px}
+.cell{height:18px;border-radius:2px;background:var(--heat-0)}
+.rowtot{font-size:13px;color:var(--muted);text-align:right;padding-left:10px}
+.axis{font-size:11px;color:var(--muted);height:16px;white-space:nowrap}
+.legend{display:flex;gap:4px;align-items:center;font-size:12px;color:var(--muted);margin-top:10px}
+.legend i{width:16px;height:10px;border-radius:2px;display:inline-block}
+
+/* tabs + tables */
+.tabs{display:flex;gap:4px;margin:28px 0 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tabs button{border:0;background:none;padding:10px 14px;cursor:pointer;font:600 16px var(--font-cond);color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent)}
+.toolbar{display:flex;gap:12px;align-items:center;padding:14px 0;flex-wrap:wrap}
+.toolbar input{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 10px;min-width:260px}
+.toolbar .hint{color:var(--muted);font-size:14px}
+.tablewrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:48px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{font:600 13px var(--font-cond);color:var(--muted);cursor:pointer;user-select:none;position:sticky;top:0;background:var(--surface)}
+th.num,td.num{text-align:right}
+th[aria-sort]::after{content:" ▾";color:var(--accent)}
+th[aria-sort=ascending]::after{content:" ▴"}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover{background:var(--accent-soft)}
+.sub{color:var(--muted);font-size:12px;display:block}
+.tag{display:inline-block;padding:1px 6px;border-radius:4px;background:var(--accent-soft);font-size:12px;margin:1px 3px 1px 0}
+.warn{color:var(--warn);font-weight:600}
+.bar{display:inline-block;height:6px;border-radius:3px;background:var(--accent);vertical-align:middle;margin-left:8px;opacity:.7}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+
+/* device panel */
+.panel{position:fixed;inset:0 0 0 auto;width:min(620px,100vw);background:var(--surface);border-left:1px solid var(--line);
+  box-shadow:-12px 0 32px rgba(10,20,30,.18);transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s;overflow-y:auto;z-index:10}
+.panel.open{transform:none;visibility:visible;transition:transform .22s ease}
+.panel .in{padding:22px 24px 40px}
+.panel .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.panel h3{font:600 26px var(--font-cond);margin:0}
+.panel .facts{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:14px;margin:14px 0 22px}
+.panel .facts dt{color:var(--muted)}
+.panel .facts dd{margin:0}
+.panel section{margin-top:24px}
+.close{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 10px;cursor:pointer}
+.spark{display:flex;align-items:flex-end;gap:2px;height:64px;border-bottom:1px solid var(--line)}
+.spark i{flex:1;background:var(--accent);min-height:1px;border-radius:2px 2px 0 0;opacity:.85}
+.alert{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:20px;padding:12px 16px;border-radius:8px;border:1px solid var(--warn);background:var(--warn-soft);font-size:15px}
+.alert.hot{border-color:var(--bad);background:var(--bad-soft)}
+.alert b{font-weight:600}
+.alert > span{flex:1;min-width:260px}
+.alert button{margin-left:auto;border:1px solid currentColor;background:transparent;border-radius:6px;padding:5px 12px;cursor:pointer;font-weight:600}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.live{background:var(--bad);color:#fff}
+.pill.past{background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn)}
+.foreign{color:var(--warn);font-weight:600}
+.bad{color:var(--bad);font-weight:600}
+footer{color:var(--muted);font-size:13px;padding:0 0 32px}
+footer a{color:inherit}
+.err{background:var(--warn-soft);color:var(--ink);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;margin-top:20px}
+@media (prefers-reduced-motion: reduce){.panel{transition:none}}
+@media (max-width:640px){.wrap{padding:0 14px}.toolbar input{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brand">wirewatch</div>
+    <div class="status" id="status"><span class="dot" id="dot"></span><span id="statustext">Connecting…</span></div>
+    <a href="/map" class="maplink">World map</a>
+    <div class="spacer"></div>
+    <div class="seg" role="group" aria-label="Time range" id="range">
+      <button data-h="1">1 hour</button><button data-h="24" aria-pressed="true">24 hours</button><button data-h="168">7 days</button><button data-h="720">30 days</button>
+    </div>
+    <label class="chk"><input type="checkbox" id="localonly" checked> LAN devices only</label>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="error"></div>
+  <div id="alerts"></div>
+  <div class="lede"><p id="lede">Loading traffic…</p><small id="ledesub"></small></div>
+
+  <div class="heat">
+    <h2>Connection attempts by device, per hour</h2>
+    <div class="heat-scroll"><div class="grid" id="heatgrid"></div></div>
+    <div class="legend">Fewer <i style="background:var(--heat-1)"></i><i style="background:var(--heat-2)"></i><i style="background:var(--heat-3)"></i><i style="background:var(--heat-4)"></i><i style="background:var(--heat-5)"></i> More</div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="devices" aria-selected="true">Devices</button>
+    <button role="tab" data-tab="destinations" aria-selected="false">Destinations</button>
+    <button role="tab" data-tab="ports" aria-selected="false">Protocols and ports</button>
+    <button role="tab" data-tab="flows" aria-selected="false">Connections</button>
+    <button role="tab" data-tab="foreign" aria-selected="false" id="foreigntab">Outside the US</button>
+    <button role="tab" data-tab="countries" aria-selected="false">Countries</button>
+    <button role="tab" data-tab="categories" aria-selected="false">Categories</button>
+  </div>
+  <div class="toolbar">
+    <input type="search" id="filter" placeholder="Filter by IP, name, vendor or port" aria-label="Filter table">
+    <span class="hint" id="hint"></span>
+  </div>
+  <div class="tablewrap"><table id="table"></table></div>
+</main>
+
+<footer class="wrap"><a href="https://db-ip.com">IP Geolocation by DB-IP</a>. Website categories include the UT1 lists by Université Toulouse Capitole (CC BY-SA 4.0).</footer>
+
+<aside class="panel" id="panel" aria-hidden="true"><div class="in" id="panelin"></div></aside>
+
+<script>
+const state = {hours: 24, local: true, tab: "devices", data: {}, sort: {}, filter: ""};
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const n = v => (v ?? 0).toLocaleString();
+const bytes = b => { b = b || 0; const u = ["B","KB","MB","GB","TB"]; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return (i ? b.toFixed(1) : b) + " " + u[i]; };
+const ago = t => { if (!t) return "never"; const s = Date.now()/1000 - t; if (s < 60) return Math.round(s) + "s ago"; if (s < 3600) return Math.round(s/60) + " min ago"; if (s < 86400) return Math.round(s/3600) + " h ago"; return Math.round(s/86400) + " d ago"; };
+const hourLabel = h => { const d = new Date(h * 1000); return state.hours > 48 ? d.toLocaleDateString([], {month:"short", day:"numeric"}) : d.toLocaleTimeString([], {hour:"numeric"}); };
+const portText = p => p ? (p.port == null ? p.proto : `${p.proto} ${p.port}${p.service ? " " + p.service : ""}`) : "";
+
+async function api(path, params = {}) {
+  const q = new URLSearchParams({hours: state.hours, local: state.local ? 1 : 0, ...params});
+  const r = await fetch(`${path}?${q}`, {credentials: "same-origin"});
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Request failed with status ${r.status}`);
+  return j;
+}
+
+function showError(e) {
+  $("#error").innerHTML = e ? `<div class="err">${esc(e.message || e)}</div>` : "";
+}
+
+async function load() {
+  try {
+    const [sum, dev, dst, ports, flows, fr, geo, cats] = await Promise.all([
+      api("/api/summary"), api("/api/devices"), api("/api/destinations"), api("/api/ports"), api("/api/flows", {limit: 2000}),
+      api("/api/foreign"), api("/api/geo"), api("/api/categories")]);
+    showError(null);
+    state.data = {summary: sum, devices: dev.devices, destinations: dst.destinations, ports: ports.ports, flows: flows.flows,
+                  foreign: fr.connections, countries: geo.countries, categories: cats.categories};
+    renderSummary(); renderAlerts(); renderHeat(); renderTable();
+  } catch (e) { showError(e); }
+}
+
+function renderSummary() {
+  const s = state.data.summary, t = s.totals;
+  const stale = Date.now()/1000 - s.last_flush > 120;
+  let st = s.last_flush ? `Capturing on ${s.interface || "?"}, updated ${ago(s.last_flush)}` : "No data from the collector yet";
+  if (s.unifi_error) st += `. UniFi sync failed: ${s.unifi_error}`;
+  else if (s.unifi_polled) st += `. UniFi synced ${ago(s.unifi_polled)}`;
+  $("#statustext").textContent = st;
+  $("#dot").classList.toggle("stale", stale || !!s.unifi_error);
+  const span = {1:"hour", 24:"24 hours", 168:"7 days", 720:"30 days"}[state.hours] || `${state.hours} hours`;
+  const unanswered = Math.max(0, t.tcp_attempts - t.tcp_established);
+  if (!t.attempts) {
+    $("#lede").textContent = `No connections recorded in the last ${span}.`;
+    $("#ledesub").textContent = "Check that the capture port is mirroring traffic and that the collector service is running.";
+    return;
+  }
+  $("#lede").innerHTML = `<b>${n(t.devices)}</b> ${t.devices === 1 ? "device" : "devices"} made <b>${n(t.attempts)}</b> connection attempts to <b>${n(t.destinations)}</b> destinations in the last ${span}. `
+    + (unanswered ? `<span class="warnnum">${n(unanswered)}</span> TCP attempts got no answer.` : `Every TCP attempt was answered.`);
+  $("#ledesub").textContent = `${bytes(t.bytes)} transferred. Click a device to see where it goes and what it looks up.`;
+}
+
+function renderHeat() {
+  const s = state.data.summary, g = $("#heatgrid");
+  const hours = []; for (let h = s.since; h <= s.since + (s.hours - 1) * 3600; h += 3600) hours.push(h);
+  // bucket hours into at most 48 columns
+  const per = Math.ceil(hours.length / 48), cols = [];
+  for (let i = 0; i < hours.length; i += per) cols.push(hours.slice(i, i + per));
+  const cell = {}; s.heatmap.cells.forEach(c => { cell[c.dev + "|" + c.hour] = c.attempts; });
+  const rows = s.heatmap.devices.map(d => ({d, vals: cols.map(c => c.reduce((a, h) => a + (cell[d.id + "|" + h] || 0), 0))}));
+  const max = Math.max(1, ...rows.flatMap(r => r.vals));
+  const shade = v => v ? `var(--heat-${Math.min(5, 1 + Math.floor(Math.log(v) / Math.log(max + 1) * 5))})` : "var(--heat-0)";
+  g.style.gridTemplateColumns = `minmax(140px,220px) repeat(${cols.length}, minmax(6px,1fr)) 70px`;
+  if (!rows.length) { g.innerHTML = `<div class="empty" style="grid-column:1/-1">No device activity in this range.</div>`; return; }
+  let html = "";
+  rows.forEach(r => {
+    const tot = r.vals.reduce((a, b) => a + b, 0);
+    html += `<button class="rowlab" data-id="${esc(r.d.id)}" title="${esc(r.d.vendor)}">${esc(r.d.label || r.d.ip)}${r.d.label ? `<span>${esc(r.d.ip)}</span>` : ""}${r.d.addresses > 1 ? `<span>+${r.d.addresses - 1}</span>` : ""}</button>`;
+    r.vals.forEach((v, i) => { html += `<div class="cell" style="background:${shade(v)}" title="${esc(r.d.label || r.d.ip)}: ${n(v)} attempts, ${hourLabel(cols[i][0])}"></div>`; });
+    html += `<div class="rowtot">${n(tot)}</div>`;
+  });
+  html += `<div></div>`;
+  const step = Math.max(1, Math.round(cols.length / 6));
+  cols.forEach((c, i) => { html += `<div class="axis">${i % step === 0 ? hourLabel(c[0]) : ""}</div>`; });
+  html += `<div></div>`;
+  g.innerHTML = html;
+  g.querySelectorAll(".rowlab").forEach(b => b.onclick = () => openDevice(b.dataset.id));
+}
+
+// ---- tables
+const COLS = {
+  devices: [
+    {k:"label", t:"Device", f:r => { const line = [r.label ? r.ips[0] : "", addrNote(r.ips)].filter(Boolean).join(", "); return `${esc(r.label || r.ips[0])}${line ? `<span class="sub">${esc(line)}</span>` : ""}${r.mac ? `<span class="sub">${esc(r.mac)}</span>` : ""}`; }, s:r => (r.label || r.ips[0])},
+    {k:"vendor", t:"Vendor", f:r => esc(r.vendor || "")},
+    {k:"vlan", t:"VLAN", f:r => esc(vlanText(r)), s:r => r.vlan ?? 99999},
+    {k:"connection", t:"Connected to", f:r => r.connection ? `${esc(connText(r.connection))}<span class="sub">${r.connection.type === "wired" ? "Wired" : "Wi-Fi"}</span>` : "", s:r => connText(r.connection)},
+    {k:"attempts", t:"Attempts", num:1, f:r => n(r.attempts)},
+    {k:"unanswered", t:"Unanswered TCP", num:1, s:r => (r.tcp_attempts||0) - (r.established||0), f:r => { const u = Math.max(0,(r.tcp_attempts||0) - (r.established||0)); return u ? `<span class="warn">${n(u)}</span>` : "0"; }},
+    {k:"destinations", t:"Destinations", num:1, f:r => n(r.destinations)},
+    {k:"ports", t:"Ports", num:1, f:r => n(r.ports)},
+    {k:"top_port", t:"Most used", f:r => esc(portText(r.top_port)), s:r => portText(r.top_port)},
+    {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+    {k:"last_seen", t:"Last seen", f:r => ago(r.last_seen)},
+  ],
+  destinations: [
+    {k:"name", t:"Destination", f:r => `${esc(r.name || r.dst)}<span class="sub">${esc(r.name ? r.dst : "")}</span>`, s:r => r.name || r.dst},
+    {k:"dst_country", t:"Location", f:r => locCell(r.dst_cc, r.dst_country, r.dst_city, r.dst_region, r.foreign), s:r => r.dst_country || ""},
+    {k:"dst_org", t:"Network owner", f:r => r.dst_org ? `${esc(r.dst_org)}<span class="sub">AS${esc(r.dst_asn)}</span>` : "", s:r => r.dst_org || ""},
+    {k:"category", t:"Category", f:r => catCell(r.category, r.flagged), s:r => r.category || "~"},
+    {k:"attempts", t:"Attempts", num:1, f:r => n(r.attempts)},
+    {k:"devices", t:"Devices", num:1, f:r => n(r.devices)},
+    {k:"ports", t:"Protocols and ports", f:r => r.ports.map(p => `<span class="tag">${esc(portText(p))}</span>`).join(""), s:r => r.ports.length},
+    {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+  ],
+  ports: [
+    {k:"dport", t:"Protocol and port", f:r => `${esc(r.proto_name)} ${r.dport ?? ""}`, s:r => r.dport ?? -1},
+    {k:"service", t:"Service", f:r => esc(r.service)},
+    {k:"attempts", t:"Attempts", num:1, f:(r, max) => `${n(r.attempts)}<span class="bar" style="width:${Math.max(2, 80 * r.attempts / max)}px"></span>`},
+    {k:"unanswered", t:"Unanswered", num:1, s:r => r.proto === 6 ? r.attempts - r.established : 0, f:r => { const u = r.proto === 6 ? Math.max(0, r.attempts - r.established) : 0; return u ? `<span class="warn">${n(u)}</span>` : (r.proto === 6 ? "0" : "—"); }},
+    {k:"devices", t:"Devices", num:1, f:r => n(r.devices)},
+    {k:"destinations", t:"Destinations", num:1, f:r => n(r.destinations)},
+    {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+  ],
+  flows: [
+    {k:"src", t:"From", f:r => `${esc(r.src_label || r.src)}<span class="sub">${esc(r.src_label ? r.src : "")}</span>`, s:r => r.src_label || r.src},
+    {k:"dst", t:"To", f:r => `${esc(r.dst_name || r.dst)}<span class="sub">${esc(r.dst_name ? r.dst : "")}</span>`, s:r => r.dst_name || r.dst},
+    {k:"dport", t:"Protocol and port", f:r => `${esc(r.proto_name)} ${r.dport ?? ""}${r.service ? `<span class="sub">${esc(r.service)}</span>` : ""}`, s:r => r.dport ?? -1},
+    {k:"dst_country", t:"Location", f:r => locCell(r.dst_cc, r.dst_country, r.dst_city, r.dst_region, r.foreign), s:r => r.dst_country || ""},
+    {k:"category", t:"Category", f:r => catCell(r.category, r.flagged), s:r => r.category || "~"},
+    {k:"attempts", t:"Attempts", num:1, f:r => n(r.attempts)},
+    {k:"established", t:"Answered", num:1, f:r => r.proto === 6 ? (r.established < r.attempts ? `<span class="warn">${n(r.established)}</span>` : n(r.established)) : "—"},
+    {k:"active_hours", t:"Active hours", num:1, f:r => n(r.active_hours)},
+    {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+    {k:"last_hour", t:"Last active", f:r => ago(r.last_hour + 3600 > Date.now()/1000 ? Date.now()/1000 : r.last_hour + 3600)},
+  ],
+};
+COLS.foreign = [
+  {k:"active", t:"Status", f:r => r.active ? `<span class="pill live">Live</span>` : `<span class="pill past">Earlier</span>`, s:r => r.active ? 1 : 0},
+  {k:"device_label", t:"Device", f:r => `${esc(r.device_label || r.local)}<span class="sub">${esc(r.device_label ? r.local : "")}</span>`, s:r => r.device_label || r.local},
+  {k:"direction", t:"Direction", f:r => r.direction === "inbound" ? `<span class="warn">Inbound</span><span class="sub">They connected to you</span>` : "Outbound"},
+  {k:"remote_name", t:"Remote", f:r => `${esc(r.remote_name || r.remote)}<span class="sub">${esc(r.remote_name ? r.remote : "")}</span>`, s:r => r.remote_name || r.remote},
+  {k:"country", t:"Location", f:r => locCell(r.cc, r.country, r.city, r.region, true), s:r => r.country || ""},
+  {k:"org", t:"Network owner", f:r => r.org ? `${esc(r.org)}<span class="sub">AS${esc(r.asn)}</span>` : "", s:r => r.org || ""},
+  {k:"category", t:"Category", f:r => catCell(r.category, FLAGGED.has(r.category)), s:r => r.category || "~"},
+  {k:"dport", t:"Protocol and port", f:r => `${esc(r.proto_name)} ${r.dport ?? ""}${r.service ? `<span class="sub">${esc(r.service)}</span>` : ""}`, s:r => r.dport ?? -1},
+  {k:"attempts", t:"Attempts", num:1, f:r => n(r.attempts)},
+  {k:"established", t:"Answered", num:1, f:r => r.proto === 6 ? n(r.established) : "—"},
+  {k:"last_seen", t:"Last seen", f:r => ago(r.last_seen)},
+];
+COLS.countries = [
+  {k:"country", t:"Location", f:r => `${r.foreign ? `<span class="foreign">${esc(r.country || r.code)}</span>` : esc(r.country || r.code)}${r.code.length === 2 ? `<span class="sub">${esc(r.code)}${r.continent ? ", " + esc(r.continent) : ""}</span>` : ""}`, s:r => r.country || r.code},
+  {k:"foreign", t:"Outside " + "home", f:r => r.foreign ? `<span class="foreign">Yes</span>` : "", s:r => r.foreign ? 1 : 0},
+  {k:"attempts", t:"Attempts", num:1, f:(r, max) => `${n(r.attempts)}<span class="bar" style="width:${Math.max(2, 80 * r.attempts / max)}px"></span>`},
+  {k:"destinations", t:"Destinations", num:1, f:r => n(r.destinations)},
+  {k:"devices", t:"Devices", num:1, f:r => n(r.devices)},
+  {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+  {k:"last_hour", t:"Last active", f:r => ago(Math.min(Date.now()/1000, r.last_hour + 3600))},
+];
+COLS.categories = [
+  {k:"category", t:"Category", f:r => `${catCell(r.category, r.flagged)}${r.examples.length ? `<span class="sub">${esc(r.examples.join(", "))}</span>` : ""}`},
+  {k:"lookups", t:"DNS lookups", num:1, f:r => n(r.lookups)},
+  {k:"attempts", t:"Connection attempts", num:1, f:r => n(r.attempts)},
+  {k:"destinations", t:"Destinations", num:1, f:r => n(r.destinations)},
+  {k:"devices", t:"Devices", num:1, f:r => n(r.devices)},
+  {k:"bytes", t:"Data", num:1, f:r => bytes(r.bytes)},
+];
+let FLAGGED = new Set(["Malware & phishing", "Crypto mining", "Stalkerware"]);
+const DEFAULT_SORT = {foreign: {k: "last_seen", dir: -1}};
+function homeName() { const h = (state.data.summary && state.data.summary.foreign && state.data.summary.foreign.home) || ["US"]; return h.length === 1 && h[0] === "US" ? "the US" : h.join(", "); }
+function locCell(cc, country, city, region, foreign) {
+  if (!country && !cc) return "";
+  const place = [city, region].filter(Boolean).join(", ");
+  return `${foreign ? `<span class="foreign">${esc(country || cc)}</span>` : esc(country || cc)}${place ? `<span class="sub">${esc(place)}</span>` : ""}`;
+}
+function catCell(c, flagged) { return c ? (flagged ? `<span class="bad">${esc(c)}</span>` : esc(c)) : ""; }
+
+function renderAlerts() {
+  const s = state.data.summary, f = s.foreign, el = $("#alerts");
+  if (s.flag_categories) FLAGGED = new Set(s.flag_categories);
+  $("#foreigntab").textContent = `Outside ${homeName()}`;
+  COLS.countries[1].t = `Outside ${homeName()}`;
+  const span = {1:"hour", 24:"24 hours", 168:"7 days", 720:"30 days"}[state.hours] || `${state.hours} hours`;
+  let html = "";
+  if (f && f.total) {
+    const where = f.countries.slice(0, 5).map(c => esc(c.country || c.cc)).join(", ") + (f.countries.length > 5 ? ` and ${f.countries.length - 5} more` : "");
+    html += `<div class="alert ${f.active ? "hot" : ""}" role="status">
+      <span>${f.active ? `<span class="pill live">Live</span> <b>${n(f.active)}</b> ${f.active === 1 ? "connection" : "connections"} outside ${homeName()} right now. ` : ""}
+      <b>${n(f.total)}</b> ${f.total === 1 ? "connection" : "connections"} with ${f.countries.length === 1 ? "a country" : n(f.countries.length) + " countries"} outside ${homeName()} in the last ${span}: ${where}.
+      ${f.inbound ? `${n(f.inbound)} inbound.` : ""}</span>
+      <button data-go="foreign">Review</button></div>`;
+  }
+  (s.flagged || []).forEach(x => {
+    html += `<div class="alert hot" role="status"><span><b>${esc(x.category)}</b>: ${n(x.devices)} ${x.devices === 1 ? "device" : "devices"} looked up ${n(x.names)} flagged ${x.names === 1 ? "domain" : "domains"} (${n(x.lookups)} lookups) in the last ${span}.</span><button data-go="categories">Review</button></div>`;
+  });
+  el.innerHTML = html;
+  el.querySelectorAll("button[data-go]").forEach(b => b.onclick = () => {
+    document.querySelector(`.tabs button[data-tab="${b.dataset.go}"]`).click();
+    document.querySelector(".tabs").scrollIntoView({behavior: "smooth"});
+  });
+}
+
+const HINTS = {
+  devices: "Devices that started connections. Click one for details.",
+  destinations: "Where your devices connect. Names come from DNS answers, TLS SNI and HTTP Host headers.",
+  ports: "Unanswered TCP attempts usually mean a blocked, closed or dead service.",
+  flows: "Each row is one device talking to one destination on one port.",
+  foreign: "Connections with an IP located outside your home country. Live means traffic in the last 10 minutes.",
+  countries: "Where your devices connect, by country. Locations come from the DB-IP Lite database.",
+  categories: "What your devices connect to, by website category. Based on the names they look up in DNS and connect to.",
+};
+function vlanText(r) { return r.vlan != null ? `VLAN ${r.vlan}${r.network ? " " + r.network : ""}` : (r.network || ""); }
+function connText(c) {
+  if (!c) return "";
+  if (c.type === "wired") return [c.switch, c.port].filter(Boolean).join(", ");
+  return [c.ap, c.ssid].filter(Boolean).join(", ");
+}
+function addrNote(ips) {
+  const rest = ips.slice(1), v6 = rest.filter(i => i.includes(":")).length, v4 = rest.length - v6;
+  return [v4 ? `+${v4} IPv4` : "", v6 ? `+${v6} IPv6` : ""].filter(Boolean).join(", ");
+}
+
+function renderTable() {
+  const tab = state.tab, cols = COLS[tab];
+  let rows = (state.data[tab] || []).slice();
+  const q = state.filter.trim().toLowerCase();
+  if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
+  const srt = state.sort[tab] || DEFAULT_SORT[tab] || {k: "attempts", dir: -1};
+  const col = cols.find(c => c.k === srt.k) || cols[0];
+  const key = col.s || (r => r[col.k]);
+  rows.sort((a, b) => { const x = key(a), y = key(b); return (x > y ? 1 : x < y ? -1 : 0) * srt.dir; });
+  const max = Math.max(1, ...rows.map(r => r.attempts || 0));
+  $("#hint").textContent = HINTS[tab];
+  const head = `<thead><tr>${cols.map(c => `<th class="${c.num ? "num" : ""}" data-k="${c.k}" ${c.k === srt.k ? `aria-sort="${srt.dir > 0 ? "ascending" : "descending"}"` : ""} scope="col" tabindex="0">${c.t}</th>`).join("")}</tr></thead>`;
+  const body = rows.length ? rows.slice(0, 1000).map(r => `<tr class="${tab === "devices" || tab === "flows" || tab === "foreign" ? "click" : ""}" data-id="${esc(r.id || r.src_dev || r.device || "")}">${cols.map(c => `<td class="${c.num ? "num" : ""}">${c.f(r, max)}</td>`).join("")}</tr>`).join("")
+    : `<tr><td colspan="${cols.length}" class="empty">${q ? "Nothing matches that filter." : "No traffic recorded in this range yet."}</td></tr>`;
+  $("#table").innerHTML = head + `<tbody>${body}</tbody>`;
+  $("#table").querySelectorAll("th").forEach(th => {
+    const go = () => { const k = th.dataset.k; const cur = state.sort[tab] || DEFAULT_SORT[tab] || {k: "attempts", dir: -1}; state.sort[tab] = {k, dir: cur.k === k ? -cur.dir : -1}; renderTable(); };
+    th.onclick = go; th.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } };
+  });
+  $("#table").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => openDevice(tr.dataset.id));
+}
+
+// ---- device panel
+async function openDevice(id) {
+  const p = $("#panel"), pin = $("#panelin");
+  pin.innerHTML = `<p>Loading…</p>`;
+  p.classList.add("open"); p.setAttribute("aria-hidden", "false");
+  try {
+    const [d, f] = await Promise.all([api("/api/device", {id}), api("/api/flows", {device: id, limit: 300, local: 0})]);
+    const h = d.device, max = Math.max(1, ...d.timeline.map(t => t.attempts));
+    const ans = r => r.proto === 6 ? (r.established < r.attempts ? `<span class="warn">${n(r.established)}</span>` : n(r.established)) : "—";
+    pin.innerHTML = `
+      <div class="head"><h3>${esc(h.label || h.ips[0])}</h3><button class="close" id="pclose">Close</button></div>
+      <dl class="facts">
+        <dt>MAC address</dt><dd>${h.shared_mac ? "Not visible: this host is reached through a router" : esc(h.mac || "Unknown (not on this segment)")}</dd>
+        <dt>Vendor</dt><dd>${esc(h.vendor || "Unknown")}</dd>
+        <dt>VLAN</dt><dd>${h.vlan != null || h.network ? esc(vlanText(h)) + (h.vlan_source ? `<span class="sub">From ${esc(h.vlan_source)}</span>` : "") : "Unknown"}</dd>
+        ${h.connection ? (h.connection.type === "wired"
+          ? `<dt>Switch</dt><dd>${esc(h.connection.switch || "Unknown")}</dd><dt>Port</dt><dd>${esc(h.connection.port || "Unknown")}${h.connection.port_idx && h.connection.port !== "Port " + h.connection.port_idx ? `<span class="sub">Port ${h.connection.port_idx}</span>` : ""}</dd>`
+          : `<dt>Access point</dt><dd>${esc(h.connection.ap || "Unknown")}</dd><dt>Wi-Fi network</dt><dd>${esc(h.connection.ssid || "Unknown")}</dd>`)
+          + (h.connection.seen ? `<dt>UniFi last saw it</dt><dd>${ago(h.connection.seen)}</dd>` : "") : `<dt>Connected to</dt><dd>Unknown (not reported by UniFi)</dd>`}
+        <dt>First seen</dt><dd>${h.first_seen ? new Date(h.first_seen * 1000).toLocaleString() : "Unknown"}</dd>
+        <dt>Last seen</dt><dd>${ago(h.last_seen)}</dd>
+      </dl>
+      <h2>Attempts per hour</h2>
+      <div class="spark">${d.timeline.map(t => `<i style="height:${Math.max(2, 100 * t.attempts / max)}%" title="${hourLabel(t.hour)}: ${n(t.attempts)}"></i>`).join("") || `<span class="sub">No outbound activity.</span>`}</div>
+      <section><h2>Addresses</h2>${miniTable(["Address", "Type", "Attempts", "Last seen"], d.addresses.map(a =>
+        [esc(a.ip), esc(a.kind), n(a.attempts), ago(a.last_seen)]))}</section>
+      <section><h2>Where it connects</h2>${miniTable(["Destination", "Port", "Attempts", "Answered"], f.flows.slice(0, 60).map(r =>
+        [`${esc(r.dst_name || r.dst)}<span class="sub">${esc(r.dst_name ? r.dst : "")}${d.addresses.length > 1 ? ` from ${esc(r.src)}` : ""}</span>${r.dst_country ? `<span class="sub ${r.foreign ? "foreign" : ""}">${esc(r.dst_country)}${r.foreign ? ", outside " + homeName() : ""}</span>` : ""}${r.category ? `<span class="sub ${r.flagged ? "bad" : ""}">${esc(r.category)}</span>` : ""}`, `${esc(r.proto_name)} ${r.dport ?? ""} <span class="sub">${esc(r.service)}</span>`, n(r.attempts), ans(r)]))}</section>
+      <section><h2>DNS lookups</h2>${miniTable(["Name", "Category", "Lookups"], d.dns.slice(0, 60).map(r => [esc(r.qname), catCell(r.category, FLAGGED.has(r.category)), n(r.count)]))}</section>
+      <section><h2>Who connects to it</h2>${miniTable(["From", "Port", "Attempts"], d.inbound.slice(0, 40).map(r => [`${esc(r.src_label || r.src)}<span class="sub">${esc(r.src_label ? r.src : "")}</span>`, `${esc(r.proto_name)} ${r.dport ?? ""} <span class="sub">${esc(r.service)}</span>`, n(r.attempts)]))}</section>`;
+    $("#pclose").onclick = closePanel; $("#pclose").focus();
+  } catch (e) { pin.innerHTML = `<div class="err">${esc(e.message)}</div><button class="close" id="pclose">Close</button>`; $("#pclose").onclick = closePanel; }
+}
+function miniTable(heads, rows) {
+  if (!rows.length) return `<p class="sub">Nothing recorded in this range.</p>`;
+  return `<div class="tablewrap" style="margin-bottom:0"><table><thead><tr>${heads.map((h, i) => `<th class="${i ? "num" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "num" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
+function closePanel() { $("#panel").classList.remove("open"); $("#panel").setAttribute("aria-hidden", "true"); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel(); });
+
+// ---- controls
+$("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
+  $("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  state.hours = +b.dataset.h; load();
+});
+$("#localonly").onchange = e => { state.local = e.target.checked; load(); };
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
+  state.tab = b.dataset.tab; renderTable();
+});
+$("#filter").oninput = e => { state.filter = e.target.value; renderTable(); };
+
+load();
+setInterval(() => { if (!document.hidden) load(); }, 30000);
+</script>
+</body>
+</html>

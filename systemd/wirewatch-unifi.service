@@ -1,0 +1,22 @@
+[Unit]
+Description=wirewatch UniFi lookups (switch port, AP, VLAN)
+After=network-online.target wirewatch-collector.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wirewatch
+Group=wirewatch
+EnvironmentFile=/etc/wirewatch/wirewatch.env
+ExecStart=/usr/bin/python3 /opt/wirewatch/unifi.py
+# Exits cleanly when WW_UNIFI_URL is empty; restarts only on errors
+Restart=on-failure
+RestartSec=30
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/wirewatch
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

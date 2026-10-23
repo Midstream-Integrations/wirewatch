@@ -1,0 +1,22 @@
+[Unit]
+Description=wirewatch intel (IP geolocation, network owner, website categories)
+After=network-online.target wirewatch-collector.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=wirewatch
+Group=wirewatch
+EnvironmentFile=/etc/wirewatch/wirewatch.env
+ExecStart=/usr/bin/python3 /opt/wirewatch/intel.py
+Restart=always
+RestartSec=30
+Nice=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/wirewatch
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

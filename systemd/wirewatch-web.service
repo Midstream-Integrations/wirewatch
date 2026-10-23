@@ -1,0 +1,23 @@
+[Unit]
+Description=wirewatch dashboard (HTTPS)
+After=network-online.target wirewatch-collector.service
+
+[Service]
+Type=simple
+User=wirewatch
+Group=wirewatch
+EnvironmentFile=/etc/wirewatch/wirewatch.env
+ExecStart=/usr/bin/python3 /opt/wirewatch/web.py
+Restart=always
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=yes
+ProtectSystem=strict
+# SQLite needs to write its WAL index even for read-only queries
+ReadWritePaths=/var/lib/wirewatch
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
