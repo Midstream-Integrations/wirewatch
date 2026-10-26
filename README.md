@@ -4,6 +4,8 @@ A small traffic portal for a Raspberry Pi or Ubuntu box. `tshark` watches a netw
 
 No pip packages, no database server, no Node. Python 3 standard library, SQLite and tshark.
 
+> **Free and MIT-licensed.** Want it running without the setup? [Midstream Integrations](https://www.midstreamintegrations.com/dashboard.html) installs it for you: the mirror port, UniFi, alerts and a wall display. [Book a 20-minute call](https://midstreamintegrations.com/contact).
+
 ## What you get
 
 The dashboard opens with a one-line summary of the time range, then a per-hour heatmap of connection attempts for your busiest devices, then four tables:
@@ -188,6 +190,16 @@ All endpoints take `hours` (default 24) and `local` (1 = only LAN devices as ini
 - Phones and newer laptops use randomized MACs; those show as "Private (randomized MAC)".
 - Only metadata is stored (addresses, ports, counts, names). No payloads are kept.
 
+## Need help, or something this doesn't do?
+
+[Midstream Integrations](https://www.midstreamintegrations.com) can:
+
+- install wirewatch on a Pi or server for you, set up the mirror port and UniFi, and tune the alerts for your network
+- add alerts or reports you need, for example email when a device reaches a new country or a camera talks to the internet
+- build custom integrations between your systems, including Microsoft Dynamics 365 Business Central ([our open-source BC apps](https://github.com/Midstream-Integrations))
+
+**[Book a 20-minute call](https://midstreamintegrations.com/contact)** · intro@MidstreamIntegrations.com
+
 ## License
 
 wirewatch is released under the [MIT License](LICENSE). Copyright (c) 2026 Midstream Integrations.
@@ -195,5 +207,3 @@ wirewatch is released under the [MIT License](LICENSE). Copyright (c) 2026 Midst
 It bundles d3, topojson-client and world-atlas (ISC licenses, map data from Natural Earth); see [`static/vendor/LICENSES.txt`](static/vendor/LICENSES.txt). At install time it downloads DB-IP Lite databases ([CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)) and the UT1 category lists from Université Toulouse Capitole ([CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)). Those are not part of this repository and keep their own licenses.
 
 Only use wirewatch on networks you own or are responsible for, and follow your organization's policy on monitoring.
-
-Need it set up for you? [Midstream Integrations](https://github.com/Midstream-Integrations) can configure the mirror port, UniFi and alerts for your network.
