@@ -21,6 +21,8 @@ The dashboard opens with a one-line summary of the time range, then a per-hour h
 - **Protocols and ports**: attempts per protocol/port with the service name, plus how many TCP attempts went unanswered.
 - **Connections**: one row per device/destination/port with attempts, answered count, active hours and data volume.
 
+The dashboard remembers your time range and the **LAN devices only** setting in your browser. To share a link that opens with a different view, add `?hours=168` (1, 24, 168 or 720) or `?local=0` (include connections from outside your network), for example `https://<pi>/?local=0`.
+
 Each device also shows its VLAN and, with UniFi connected, the switch and port or the access point and Wi-Fi network it's on. Click any device for its hourly activity, where it connects, what names it looks up in DNS, and who connects to it.
 
 ## How "attempts" are counted

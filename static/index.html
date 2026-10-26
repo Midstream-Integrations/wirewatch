@@ -171,6 +171,16 @@ footer a{color:inherit}
 
 <script>
 const state = {hours: 24, local: true, tab: "devices", data: {}, sort: {}, filter: ""};
+// Remember the time range and "LAN devices only" per browser; ?hours= and ?local= in the link take precedence
+const prefs = (() => { try { return JSON.parse(localStorage.getItem("wirewatch.prefs") || "{}"); } catch (e) { return {}; } })();
+const savePrefs = () => { try { localStorage.setItem("wirewatch.prefs", JSON.stringify({hours: state.hours, local: state.local})); } catch (e) {} };
+{
+  const u = new URLSearchParams(location.search);
+  const h = +(u.get("hours") || prefs.hours);
+  if ([1, 24, 168, 720].includes(h)) state.hours = h;
+  const l = u.has("local") ? u.get("local") !== "0" : prefs.local;
+  if (typeof l === "boolean") state.local = l;
+}
 const $ = s => document.querySelector(s);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const n = v => (v ?? 0).toLocaleString();
@@ -447,9 +457,11 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closePanel()
 // ---- controls
 $("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
-  state.hours = +b.dataset.h; load();
+  state.hours = +b.dataset.h; savePrefs(); load();
 });
-$("#localonly").onchange = e => { state.local = e.target.checked; load(); };
+$("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.h === state.hours));
+$("#localonly").checked = state.local;
+$("#localonly").onchange = e => { state.local = e.target.checked; savePrefs(); load(); };
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tabs button").forEach(x => x.setAttribute("aria-selected", x === b));
   state.tab = b.dataset.tab; renderTable();
