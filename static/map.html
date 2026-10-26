@@ -87,7 +87,7 @@ aside h2{font:600 13px var(--cond);letter-spacing:.08em;text-transform:uppercase
   border:1px solid var(--line);border-radius:8px;padding:8px 12px;z-index:5;max-width:calc(100vw - 380px)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
 .legend label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--ink)}
-#note{position:fixed;left:50%;top:18px;transform:translateX(-50%);font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
+#note{position:fixed;left:50%;top:70px;pointer-events:none;transform:translateX(-50%);font-size:13px;color:var(--muted);background:var(--panel);border:1px solid var(--line);
   border-radius:999px;padding:5px 14px;z-index:5;display:none;white-space:nowrap}
 #tip{position:fixed;pointer-events:none;background:#0B141C;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;
   max-width:300px;z-index:10;display:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
@@ -141,7 +141,7 @@ aside h2{font:600 13px var(--cond);letter-spacing:.08em;text-transform:uppercase
   <div class="brand">wirewatch <span>world map</span></div>
   <a class="back" href="/">Dashboard</a>
   <div class="seg" role="group" aria-label="Time range" id="range">
-    <button data-h="1">1 hour</button><button data-h="24" aria-pressed="true">24 hours</button><button data-h="168">7 days</button>
+    <button data-h="1">1 hour</button><button data-h="24" aria-pressed="true">24 hours</button><button data-h="168">7 days</button><button data-h="720">30 days</button>
   </div>
   <div class="live" id="live"><i></i><span id="livetext">Connecting…</span></div>
 </div>
@@ -200,6 +200,11 @@ const $ = s => document.querySelector(s);
 const state = {hours: 24, data: null, world: null, lastTs: Date.now() / 1000 - 90, liveTimes: [], lastLive: 0,
                comets: [], pulses: [], queue: [], proj: null, home: null, homeName: "the US", zt: d3.zoomIdentity};
 const svg = d3.select("#map"), canvas = $("#fx"), ctx = canvas.getContext("2d");
+// Same time range as the dashboard (shared per browser); ?hours= in the link takes precedence
+const PREFS_KEY = "wirewatch.prefs";
+const loadPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) || "{}"); } catch (e) { return {}; } };
+const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify({...loadPrefs(), hours: state.hours})); } catch (e) {} };
+{ const h = +(new URLSearchParams(location.search).get("hours") || loadPrefs().hours); if ([1, 24, 168, 720].includes(h)) state.hours = h; }
 
 async function api(path, params = {}) {
   const r = await fetch(`${path}?${new URLSearchParams(params)}`, {credentials: "same-origin"});
@@ -456,7 +461,7 @@ async function openPlace(p, direction) {
     const r = await api("/api/map/place", {cc: p.cc, lat: p.lat, lon: p.lon, hours: state.hours, direction});
     state.placeData = r;
     const att = r.ips.reduce((a, x) => a + x.attempts, 0);
-    $("#d-sub").textContent = `${n(r.total_ips)} ${r.total_ips === 1 ? "address" : "addresses"}, ${n(att)} attempts in the last ${({1:"hour",24:"24 hours",168:"7 days"})[state.hours]}. Hostnames come from DNS answers, TLS (SNI) and HTTP Host headers.`;
+    $("#d-sub").textContent = `${n(r.total_ips)} ${r.total_ips === 1 ? "address" : "addresses"}, ${n(att)} attempts in the last ${({1:"hour",24:"24 hours",168:"7 days",720:"30 days"})[state.hours]}. Hostnames come from DNS answers, TLS (SNI) and HTTP Host headers.`;
     renderIPs();
   } catch (e) { $("#d-sub").textContent = e.message; }
 }
@@ -488,8 +493,9 @@ addEventListener("keydown", e => { if (e.key === "Escape") closePlace(); });
 
 $("#range").querySelectorAll("button").forEach(b => b.onclick = () => {
   $("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
-  state.hours = +b.dataset.h; loadPlaces().then(() => { if (state.place) openPlace(state.place.p, state.place.direction); });
+  state.hours = +b.dataset.h; savePrefs(); loadPlaces().then(() => { if (state.place) openPlace(state.place.p, state.place.direction); });
 });
+$("#range").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", +x.dataset.h === state.hours));
 // ---- zoom: scroll wheel, pinch, drag to pan, double-click, or the +/- buttons
 const zoom = d3.zoom().scaleExtent([1, 16])
   .translateExtent([[-200, -200], [innerWidth + 200, innerHeight + 200]])

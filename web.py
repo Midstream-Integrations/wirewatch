@@ -740,14 +740,16 @@ def api_map_events(qs):
                gd.scope dscope, gd.cc dcc, gd.country dcountry, gd.city dcity, gd.lat dlat, gd.lon dlon, gd.org dorg,
                gs.scope sscope, gs.cc scc, gs.country scountry, gs.city scity, gs.lat slat, gs.lon slon, gs.org sorg,
                {foreign_sql('gd')} dforeign, {foreign_sql('gs')} sforeign,
-               n.name dname, nc.category dcat, sh.is_local slocal
+               n.name dname, nc.category dcat, sh.is_local slocal, dh.is_local dlocal
         FROM flows fl
           LEFT JOIN intel.ip_info gd ON gd.ip = fl.dst LEFT JOIN intel.ip_info gs ON gs.ip = fl.src
           LEFT JOIN names n ON n.ip = fl.dst LEFT JOIN intel.name_cat nc ON nc.name = lower(n.name)
-          LEFT JOIN hosts sh ON sh.ip = fl.src
+          LEFT JOIN hosts sh ON sh.ip = fl.src LEFT JOIN hosts dh ON dh.ip = fl.dst
         WHERE fl.last_seen > ? AND (gd.scope = 'public' OR gs.scope = 'public')
         ORDER BY fl.last_seen DESC LIMIT 400""", (since,)):
-        inbound = r["sscope"] == "public" and r["dscope"] != "public"
+        # inbound: an outside address connecting to one of your devices. Decided by WW_LOCAL_NETS, not by
+        # address type, so a server with a public IP (for example a cloud VM) is handled correctly.
+        inbound = not r["slocal"] and r["sscope"] == "public" and (bool(r["dlocal"]) or r["dscope"] != "public")
         if inbound:
             lat, lon, cc, country, city, org, foreign = r["slat"], r["slon"], r["scc"], r["scountry"], r["scity"], r["sorg"], r["sforeign"]
             remote, local, name, cat = r["src"], r["dst"], "", ""
