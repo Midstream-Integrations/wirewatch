@@ -4,6 +4,8 @@ A small traffic portal for a Raspberry Pi or Ubuntu box. `tshark` watches a netw
 
 No pip packages, no database server, no Node. Python 3 standard library, SQLite and tshark.
 
+**[Live demo](https://wirewatch.midstreamintegrations.com/?local=0)**: a small cloud server watching its own traffic, so most of what you'll see is the internet scanning it. On a home or office network, plugged into a mirror port, you see every device instead.
+
 > **Free and MIT-licensed.** Want it running without the setup? [Midstream Integrations](https://www.midstreamintegrations.com/dashboard.html) installs it for you: the mirror port, UniFi, alerts and a wall display. [Book a 20-minute call](https://midstreamintegrations.com/contact).
 
 ![wirewatch world map: live connections from your network to every country it reaches](docs/images/world-map.png)

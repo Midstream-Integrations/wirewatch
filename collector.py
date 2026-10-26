@@ -231,6 +231,10 @@ class Aggregator:
             if is_local(src) and vlan is not None:
                 hrec[3] = vlan
             hrec[2] = ts
+        # A local address that only receives (for example a server whose replies are filtered out, or that
+        # silently drops scans) still counts as one of your devices, so inbound traffic to it is attributed.
+        if dst not in self.hosts and is_local(dst):
+            self.hosts[dst] = ["", ts, ts, None]
 
         # ---- names: DHCP hostnames, DNS answers, TLS SNI, HTTP Host
         hn = first(r.get("dhcp.option.hostname"))
