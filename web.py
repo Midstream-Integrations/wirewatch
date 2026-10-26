@@ -121,6 +121,13 @@ SHARED_MIN = int(os.environ.get("WW_SHARED_MAC_MIN_IPV4", "3"))
 GATEWAY_MACS = {m.strip().lower() for m in os.environ.get("WW_GATEWAY_MACS", "").split(",")
                 if re.fullmatch(r"[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}", m.strip())}
 
+def looks_like_ip(s):
+    try:
+        ipaddress.ip_address(s.strip("[]"))
+        return True
+    except ValueError:
+        return False
+
 def ip_sort(ip):
     try:
         a = ipaddress.ip_address(ip)
@@ -164,7 +171,7 @@ def load_devices(con):
     for d in devs.values():
         d["ips"].sort(key=ip_sort)
         if not d["label"]:
-            d["label"] = next((names[i] for i in d["ips"] if names.get(i)), "")
+            d["label"] = next((names[i] for i in d["ips"] if names.get(i) and not looks_like_ip(names[i])), "")
     con.execute("CREATE TEMP TABLE devmap (ip TEXT PRIMARY KEY, dev TEXT)")
     con.executemany("INSERT INTO devmap VALUES (?,?)", mapping)
     return devs
@@ -652,7 +659,10 @@ def api_map(qs):
             "totals": {"attempts": sum(p["attempts"] for p in pl), "places": len(pl),
                        "countries": len({p["cc"] for p in pl}), "foreign_places": sum(p["foreign"] for p in pl),
                        "foreign_countries": len({p["cc"] for p in pl if p["foreign"]}),
-                       "inbound_attempts": sum(r["attempts"] for r in inbound), "lan_attempts": lan}}
+                       "inbound_attempts": sum(r["attempts"] for r in inbound), "lan_attempts": lan,
+                       # both directions: where your devices connect to, and where inbound connections come from
+                       "countries_any": len({p["cc"] for p in pl} | {r["cc"] for r in inbound}),
+                       "foreign_countries_any": len({p["cc"] for p in pl if p["foreign"]} | {r["cc"] for r in inbound if r["foreign"]})}}
 
 def api_map_place(qs):
     """Every IP at one map location, with each hostname seen for it."""

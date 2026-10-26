@@ -87,6 +87,19 @@ CREATE TABLE IF NOT EXISTS unifi_networks (
 """
 
 # --------------------------------------------------------------- helpers ---
+def is_ip(s):
+    try:
+        ipaddress.ip_address(s.strip("[]"))
+        return True
+    except ValueError:
+        return False
+
+def host_only(h):
+    """'example.com:8080' -> 'example.com', '[2001:db8::1]:80' -> '2001:db8::1'"""
+    h = (h or "").strip()
+    if h.startswith("["):
+        return h[1:].split("]")[0]
+    return h.split(":")[0] if h.count(":") == 1 else h
 _local_cache = {}
 def is_local(ip):
     r = _local_cache.get(ip)
@@ -242,24 +255,28 @@ class Aggregator:
         if hn and hmac:
             self.mac_names[hmac] = (hn, ts)
         qname = first(r.get("dns.qry.name"))
+        # Names only count when one of your devices asked: DNS answers sent to it, and the TLS server name /
+        # HTTP Host it sent. Requests arriving from the internet carry whatever text the sender chose
+        # (scanners send "Host: 239.255.255.250"), so they would otherwise rename your devices.
         if qname:
             if truthy(first(r.get("dns.flags.response"))):
-                for col in ("dns.a", "dns.aaaa"):
-                    for ans in (r.get(col) or "").split(","):
-                        if ans:
-                            self.names.setdefault(ans, (qname, "dns", ts))
-                            self.note_name(ans, qname, "dns", ts)
-            else:
+                if is_local(dst):                         # an answer to one of your devices
+                    for col in ("dns.a", "dns.aaaa"):
+                        for ans in (r.get(col) or "").split(","):
+                            if ans:
+                                self.names.setdefault(ans, (qname, "dns", ts))
+                                self.note_name(ans, qname, "dns", ts)
+            elif is_local(src):                           # a lookup by one of your devices
                 hk = (src, qname.lower(), int(ts // 3600) * 3600)
                 self.dns[hk] = self.dns.get(hk, 0) + 1
         sni = first(r.get("tls.handshake.extensions_server_name"))
-        if sni:
+        if sni and is_local(src) and not is_ip(sni):
             self.names[dst] = (sni, "tls", ts)
             self.note_name(dst, sni, "tls", ts)
-        host = first(r.get("http.host"))
-        if host:
-            self.names[dst] = (host.split(":")[0], "http", ts)
-            self.note_name(dst, host.split(":")[0], "http", ts)
+        host = host_only(first(r.get("http.host")))
+        if host and is_local(src) and not is_ip(host):
+            self.names[dst] = (host, "http", ts)
+            self.note_name(dst, host, "http", ts)
 
         # ---- connections
         if proto == 6:

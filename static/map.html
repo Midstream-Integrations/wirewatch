@@ -81,6 +81,7 @@ aside h2{font:600 13px var(--cond);letter-spacing:.08em;text-transform:uppercase
 #top .bar{grid-column:1/-1;height:3px;border-radius:2px;background:var(--domestic);opacity:.7}
 #top .foreign .bar{background:var(--foreign)}
 #top .foreign span:first-child{color:var(--foreign)}
+#top li span.sub-in{display:block;font-size:11px;color:var(--inbound);margin-top:1px}
 .empty{color:var(--muted);font-size:13px;padding:6px 16px}
 
 .legend{position:fixed;left:18px;bottom:16px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);background:var(--panel);
@@ -151,7 +152,7 @@ aside h2{font:600 13px var(--cond);letter-spacing:.08em;text-transform:uppercase
 <aside aria-label="Connection details">
   <div class="kpis">
     <div class="kpi"><b id="k-live">0</b><span>live connections, last minute</span></div>
-    <div class="kpi"><b id="k-countries">0</b><span>countries reached</span></div>
+    <div class="kpi"><b id="k-countries">0</b><span>countries, in or out</span></div>
     <div class="kpi warn"><b id="k-foreign">0</b><span id="k-foreign-l">countries outside the US</span></div>
     <div class="kpi inb"><b id="k-inbound">0</b><span>inbound attempts from the internet</span></div>
   </div>
@@ -387,8 +388,8 @@ async function loadPlaces() {
     const d = await api("/api/map", {hours: state.hours});
     state.data = d; showErr(null);
     state.homeName = d.home_countries.length === 1 && d.home_countries[0] === "US" ? "the US" : d.home_countries.join(", ");
-    $("#k-countries").textContent = n(d.totals.countries);
-    $("#k-foreign").textContent = n(d.totals.foreign_countries);
+    $("#k-countries").textContent = n(d.totals.countries_any ?? d.totals.countries);
+    $("#k-foreign").textContent = n(d.totals.foreign_countries_any ?? d.totals.foreign_countries);
     $("#k-foreign-l").textContent = `countries outside ${state.homeName}`;
     $("#lg-dom").textContent = `Inside ${state.homeName}`; $("#lg-for").textContent = `Outside ${state.homeName}`;
     $("#k-inbound").textContent = n(d.totals.inbound_attempts);
@@ -396,13 +397,16 @@ async function loadPlaces() {
   } catch (e) { showErr(e); }
 }
 function renderTop(d) {
+  // both directions: outbound destinations plus where inbound connections come from
   const by = {};
-  d.places.forEach(p => { const k = p.cc; by[k] = by[k] || {cc: p.cc, country: p.country, attempts: 0, foreign: p.foreign}; by[k].attempts += p.attempts; });
-  const list = Object.values(by).sort((a, b) => b.attempts - a.attempts).slice(0, 15);
+  const add = (p, dir) => { const x = by[p.cc] = by[p.cc] || {cc: p.cc, country: p.country, attempts: 0, out: 0, in: 0, foreign: p.foreign};
+    x.attempts += p.attempts; x[dir] += p.attempts; x.foreign = x.foreign || p.foreign; if (!x.country) x.country = p.country; };
+  d.places.forEach(p => add(p, "out")); d.inbound.forEach(p => add(p, "in"));
+  const list = Object.values(by).filter(x => x.attempts > 0).sort((a, b) => b.attempts - a.attempts).slice(0, 15);
   const max = Math.max(1, ...list.map(x => x.attempts));
-  $("#top").innerHTML = list.length ? list.map(x => `<li class="${x.foreign ? "foreign" : ""}"><span>${esc(x.country || x.cc)}</span><span>${n(x.attempts)}</span>
+  $("#top").innerHTML = list.length ? list.map(x => `<li class="${x.foreign ? "foreign" : ""}"><span>${esc(x.country || x.cc)}${x.in ? `<span class="sub-in">${x.out ? `${n(x.in)} in, ${n(x.out)} out` : "inbound"}</span>` : ""}</span><span>${n(x.attempts)}</span>
     <span class="bar" style="width:${Math.max(2, 100 * x.attempts / max)}%"></span></li>`).join("")
-    : `<li class="empty">No internet destinations in this range yet.</li>`;
+    : `<li class="empty">No internet traffic in this range yet.</li>`;
 }
 async function poll() {
   try {
