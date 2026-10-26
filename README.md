@@ -85,6 +85,8 @@ sudo systemctl restart wirewatch-collector wirewatch-web
 
 Open `https://<management-ip>/` and log in as `admin`.
 
+To run a public demo with no login, set `WW_PUBLIC=1`. The dashboard and API stay read-only, but anyone who can reach the port sees every device, destination and DNS lookup, so only do this on a box with nothing private on it (for example a cloud server watching its own traffic).
+
 To use a real certificate, point `WW_TLS_CERT` and `WW_TLS_KEY` at it (the files must be readable by the `wirewatch` group). To run on another port, change `WW_PORT`.
 
 ## Files

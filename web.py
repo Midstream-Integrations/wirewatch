@@ -23,6 +23,8 @@ CERT = os.environ.get("WW_TLS_CERT", "/etc/wirewatch/tls/cert.pem")
 KEY = os.environ.get("WW_TLS_KEY", "/etc/wirewatch/tls/key.pem")
 USER = os.environ.get("WW_USER", "admin")
 PASSWORD = os.environ.get("WW_PASSWORD", "")
+# WW_PUBLIC=1 serves the dashboard without a login (read-only), for a public demo
+PUBLIC = os.environ.get("WW_PUBLIC", "").strip().lower() in ("1", "true", "yes")
 INTEL_DB = os.environ.get("WW_INTEL_DB", "/var/lib/wirewatch/intel.db")
 HOME = {c.strip().upper() for c in os.environ.get("WW_HOME_COUNTRIES", "US").split(",") if c.strip()}
 ACTIVE_SECONDS = int(os.environ.get("WW_ACTIVE_SECONDS", "600"))
@@ -781,6 +783,8 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def authorized(self):
+        if PUBLIC:
+            return True
         h = self.headers.get("Authorization", "")
         if not h.startswith("Basic ") or not PASSWORD:
             return False
@@ -841,8 +845,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, b"Not found", "text/plain")
 
 def main():
-    if not PASSWORD:
+    if not PASSWORD and not PUBLIC:
         raise SystemExit("Set WW_PASSWORD in /etc/wirewatch/wirewatch.env before starting the web server.")
+    if PUBLIC:
+        print("WW_PUBLIC is on: anyone who can reach this port sees the dashboard without a login", flush=True)
     srv = ThreadingHTTPServer((BIND, PORT), Handler)
     if CERT and os.path.exists(CERT):
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
