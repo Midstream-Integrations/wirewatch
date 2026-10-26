@@ -6,6 +6,12 @@ No pip packages, no database server, no Node. Python 3 standard library, SQLite 
 
 > **Free and MIT-licensed.** Want it running without the setup? [Midstream Integrations](https://www.midstreamintegrations.com/dashboard.html) installs it for you: the mirror port, UniFi, alerts and a wall display. [Book a 20-minute call](https://midstreamintegrations.com/contact).
 
+![wirewatch world map: live connections from your network to every country it reaches](docs/images/world-map.png)
+
+![wirewatch dashboard: connection attempts per device per hour, with an alert for traffic outside the US](docs/images/dashboard.png)
+
+<sub>Screenshots use made-up sample data.</sub>
+
 ## What you get
 
 The dashboard opens with a one-line summary of the time range, then a per-hour heatmap of connection attempts for your busiest devices, then four tables:
