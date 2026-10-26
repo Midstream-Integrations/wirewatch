@@ -381,6 +381,10 @@ const HINTS = {
   countries: "Where your devices connect, by country. Locations come from the DB-IP Lite database.",
   categories: "What your devices connect to, by website category. Based on the names they look up in DNS and connect to.",
 };
+// Hide VLAN and switch/AP details on networks that have neither (for example a cloud server)
+const unifiOn = () => { const s = state.data.summary || {}; return !!(s.unifi_polled || s.unifi_error); };
+const anyVlan = () => (state.data.devices || []).some(d => d.vlan != null || d.network);
+const anyConn = () => unifiOn() || (state.data.devices || []).some(d => d.connection);
 function vlanText(r) { return r.vlan != null ? `VLAN ${r.vlan}${r.network ? " " + r.network : ""}` : (r.network || ""); }
 function connText(c) {
   if (!c) return "";
@@ -393,7 +397,8 @@ function addrNote(ips) {
 }
 
 function renderTable() {
-  const tab = state.tab, cols = COLS[tab];
+  const tab = state.tab;
+  const cols = COLS[tab].filter(c => tab !== "devices" || (c.k !== "vlan" || anyVlan()) && (c.k !== "connection" || anyConn()));
   let rows = (state.data[tab] || []).slice();
   const q = state.filter.trim().toLowerCase();
   if (q) rows = rows.filter(r => JSON.stringify(r).toLowerCase().includes(q));
@@ -428,11 +433,11 @@ async function openDevice(id) {
       <dl class="facts">
         <dt>MAC address</dt><dd>${h.shared_mac ? "Not visible: this host is reached through a router" : esc(h.mac || "Unknown (not on this segment)")}</dd>
         <dt>Vendor</dt><dd>${esc(h.vendor || "Unknown")}</dd>
-        <dt>VLAN</dt><dd>${h.vlan != null || h.network ? esc(vlanText(h)) + (h.vlan_source ? `<span class="sub">From ${esc(h.vlan_source)}</span>` : "") : "Unknown"}</dd>
+        ${h.vlan != null || h.network ? `<dt>VLAN</dt><dd>${esc(vlanText(h)) + (h.vlan_source ? `<span class="sub">From ${esc(h.vlan_source)}</span>` : "")}</dd>` : anyVlan() ? `<dt>VLAN</dt><dd>Unknown</dd>` : ""}
         ${h.connection ? (h.connection.type === "wired"
           ? `<dt>Switch</dt><dd>${esc(h.connection.switch || "Unknown")}</dd><dt>Port</dt><dd>${esc(h.connection.port || "Unknown")}${h.connection.port_idx && h.connection.port !== "Port " + h.connection.port_idx ? `<span class="sub">Port ${h.connection.port_idx}</span>` : ""}</dd>`
           : `<dt>Access point</dt><dd>${esc(h.connection.ap || "Unknown")}</dd><dt>Wi-Fi network</dt><dd>${esc(h.connection.ssid || "Unknown")}</dd>`)
-          + (h.connection.seen ? `<dt>UniFi last saw it</dt><dd>${ago(h.connection.seen)}</dd>` : "") : `<dt>Connected to</dt><dd>Unknown (not reported by UniFi)</dd>`}
+          + (h.connection.seen ? `<dt>UniFi last saw it</dt><dd>${ago(h.connection.seen)}</dd>` : "") : unifiOn() ? `<dt>Connected to</dt><dd>Unknown (not reported by UniFi)</dd>` : ""}
         <dt>First seen</dt><dd>${h.first_seen ? new Date(h.first_seen * 1000).toLocaleString() : "Unknown"}</dd>
         <dt>Last seen</dt><dd>${ago(h.last_seen)}</dd>
       </dl>
